@@ -20,10 +20,7 @@ from home_media_mcp.utils import full_detail, summarize_list
 async def sonarr_get_system_status(
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get Sonarr system status information.
-
-    Returns version, OS, runtime, startup time, and other system details.
-    """
+    """Get Sonarr system status information."""
     api = sonarr.SystemApi(client)
     result = await sonarr_api_call(api.get_system_status)
     return full_detail(result)
@@ -36,11 +33,7 @@ async def sonarr_get_system_status(
 async def sonarr_list_health_checks(
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List Sonarr health check results.
-
-    Shows warnings and errors about configuration issues, indexer problems,
-    download client status, etc.
-    """
+    """List Sonarr health check results."""
     api = sonarr.HealthApi(client)
     results = await sonarr_api_call(api.list_health)
     return summarize_list(results)
@@ -53,10 +46,7 @@ async def sonarr_list_health_checks(
 async def sonarr_get_disk_space(
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get disk space information for Sonarr's configured paths.
-
-    Shows free space, total space, and path for each monitored location.
-    """
+    """Get disk space information for Sonarr's configured paths."""
     api = sonarr.DiskSpaceApi(client)
     results = await sonarr_api_call(api.list_disk_space)
     return summarize_list(results)
@@ -73,12 +63,7 @@ async def sonarr_list_logs(
     grep: Annotated[str | None, "Regex pattern to filter log messages"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get Sonarr log entries.
-
-    Shows recent log messages including errors, warnings, and info.
-    Use the 'level' parameter to filter by severity.
-    Use the 'grep' parameter to search for specific text in messages.
-    """
+    """Get Sonarr log entries."""
     api = sonarr.LogApi(client)
     kwargs: dict[str, Any] = {"page": page, "page_size": page_size}
     if level is not None:

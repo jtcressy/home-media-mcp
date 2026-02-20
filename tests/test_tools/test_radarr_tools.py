@@ -130,7 +130,7 @@ async def test_radarr_describe_movie(patched_mcp):
 
 @pytest.mark.asyncio
 async def test_radarr_list_history_uses_get_history(patched_mcp):
-    """Must use get_history (not list_history) on HistoryApi."""
+    """Must use get_history (not list_history) on HistoryApi when movie_id is None."""
     mock_api = MagicMock()
     mock_api.get_history.return_value = make_mock_paged([_mock_history_record()])
 
@@ -145,19 +145,18 @@ async def test_radarr_list_history_uses_get_history(patched_mcp):
 
 
 @pytest.mark.asyncio
-async def test_radarr_list_movie_history_uses_list_history_movie(patched_mcp):
-    """Must use list_history_movie (not list_history) for per-movie history."""
+async def test_radarr_list_history_with_movie_id(patched_mcp):
+    """When movie_id is provided, must use list_history_movie (not get_history)."""
     mock_api = MagicMock()
     mock_api.list_history_movie.return_value = [_mock_history_record()]
 
     with patch("radarr.HistoryApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
-            result = await client.call_tool(
-                "radarr_list_movie_history", {"movie_id": 1}
-            )
+            result = await client.call_tool("radarr_list_history", {"movie_id": 1})
 
     mock_api.list_history_movie.assert_called_once_with(movie_id=1)
-    mock_api.list_history.assert_not_called()
+    mock_api.get_history.assert_not_called()
+    assert result.data["summary"]["total"] == 1
 
 
 # ---------------------------------------------------------------------------

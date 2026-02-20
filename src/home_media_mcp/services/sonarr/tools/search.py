@@ -22,15 +22,7 @@ async def sonarr_search_releases(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Search indexers for available releases of a specific episode.
-
-    Returns available downloads with their quality, size, indexer, and other details.
-    Use download_release with the guid and indexerId to download one.
-
-    IMPORTANT: Each release includes 'guid' and 'indexerId' fields which are
-    required for download_release. Other useful fields: title, size, quality,
-    customFormatScore, approved, rejected.
-    """
+    """Search indexers for releases of an episode. Use download_release with the guid and indexerId from results."""
     api = sonarr.ReleaseApi(client)
     releases = await sonarr_api_call(api.list_release, episode_id=episode_id)
     filtered = grep_filter(releases, grep)

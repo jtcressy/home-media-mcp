@@ -22,10 +22,7 @@ async def radarr_list_movie_files(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List all files for a movie.
-
-    Returns summary info about each file. Use describe_movie_file for full details.
-    """
+    """List all files for a movie. Use describe_movie_file for full details."""
     api = radarr.MovieFileApi(client)
     files = await radarr_api_call(api.list_movie_file, movie_id=[movie_id])
     filtered = grep_filter(files, grep)
@@ -40,10 +37,7 @@ async def radarr_describe_movie_file(
     id: Annotated[int, "The movie file ID"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Get full details for a specific movie file.
-
-    Includes quality, media info, languages, path, size, and more.
-    """
+    """Get full details for a specific movie file."""
     api = radarr.MovieFileApi(client)
     try:
         result = await radarr_api_call(api.get_movie_file_by_id, id=id)
@@ -60,11 +54,7 @@ async def radarr_delete_movie_file(
     id: Annotated[int, "The movie file ID to delete"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Delete a movie file from disk.
-
-    This permanently removes the file. The movie will show as missing
-    in Radarr. This action cannot be undone.
-    """
+    """Delete a movie file from disk permanently."""
     api = radarr.MovieFileApi(client)
     try:
         await radarr_api_call(api.delete_movie_file, id=id)

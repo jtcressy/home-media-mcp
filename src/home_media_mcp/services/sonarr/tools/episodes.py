@@ -23,11 +23,7 @@ async def sonarr_list_episodes(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List episodes for a series, optionally filtered by season.
-
-    Returns summary information for each episode. Use describe_episode
-    with an ID for full details.
-    """
+    """List episodes for a series, optionally filtered by season."""
     api = sonarr.EpisodeApi(client)
     kwargs: dict[str, Any] = {"series_id": series_id}
     if season_number is not None:
@@ -58,15 +54,12 @@ async def sonarr_describe_episode(
     tags={"write"},
     annotations={"destructiveHint": False, "readOnlyHint": False},
 )
-async def sonarr_monitor_episodes(
+async def sonarr_update_episodes(
     episode_ids: Annotated[list[int], "List of episode IDs to update"],
     monitored: Annotated[bool, "Whether episodes should be monitored"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Set the monitored status for one or more episodes.
-
-    Pass a list of episode IDs and whether they should be monitored.
-    """
+    """Set the monitored status for one or more episodes by ID."""
     api = sonarr.EpisodeApi(client)
     resource = sonarr.EpisodesMonitoredResource(
         episode_ids=episode_ids, monitored=monitored
@@ -75,6 +68,38 @@ async def sonarr_monitor_episodes(
     return {
         "success": True,
         "message": f"{'Monitored' if monitored else 'Unmonitored'} {len(episode_ids)} episode(s).",
+    }
+
+
+@mcp.tool(
+    tags={"write"},
+    annotations={"destructiveHint": False, "readOnlyHint": False},
+)
+async def sonarr_update_season(
+    series_id: Annotated[int, "The Sonarr series ID"],
+    season_number: Annotated[int, "The season number to update"],
+    monitored: Annotated[bool, "Whether the season should be monitored"],
+    client: sonarr.ApiClient = Depends(get_sonarr_client),
+) -> dict[str, Any]:
+    """Set the monitored status for all episodes in a season."""
+    api = sonarr.EpisodeApi(client)
+    episodes = await sonarr_api_call(
+        api.list_episode, series_id=series_id, season_number=season_number
+    )
+    if not episodes:
+        return {
+            "success": False,
+            "message": f"No episodes found for series {series_id} season {season_number}.",
+        }
+
+    episode_ids = [e.id for e in episodes]
+    resource = sonarr.EpisodesMonitoredResource(
+        episode_ids=episode_ids, monitored=monitored
+    )
+    await sonarr_api_call(api.put_episode_monitor, episodes_monitored_resource=resource)
+    return {
+        "success": True,
+        "message": f"{'Monitored' if monitored else 'Unmonitored'} season {season_number} ({len(episode_ids)} episodes).",
     }
 
 

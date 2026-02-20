@@ -23,6 +23,30 @@ async def sonarr_api_call(func, *args, **kwargs) -> Any:
     return await asyncio.to_thread(func, *args, **kwargs)
 
 
+async def sonarr_post_command(client: sonarr.ApiClient, body: dict) -> Any:
+    """POST a plain-dict body to /api/v3/command, bypassing CommandResource."""
+
+    def _call():
+        _param = client.param_serialize(
+            method="POST",
+            resource_path="/api/v3/command",
+            header_params={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            body=body,
+            auth_settings=["apikey", "X-Api-Key"],
+        )
+        response_data = client.call_api(*_param)
+        response_data.read()
+        return client.response_deserialize(
+            response_data=response_data,
+            response_types_map={"2XX": "CommandResource"},
+        ).data
+
+    return await sonarr_api_call(_call)
+
+
 # Import tool modules to register tools on the shared mcp instance
 from home_media_mcp.services.sonarr.tools import (  # noqa: E402, F401
     blocklist,

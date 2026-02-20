@@ -22,11 +22,7 @@ async def radarr_preview_rename(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Preview how movie files would be renamed.
-
-    Shows the current filename and the new filename based on Radarr's
-    naming configuration. Use run_command with 'RenameFiles' to execute.
-    """
+    """Preview how movie files would be renamed based on Radarr's naming config."""
     api = radarr.RenameMovieApi(client)
     results = await radarr_api_call(api.list_rename, movie_id=movie_id)
     filtered = grep_filter(results, grep)

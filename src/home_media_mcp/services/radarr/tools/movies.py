@@ -27,12 +27,7 @@ async def radarr_list_movies(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List all movies in Radarr with summary information.
-
-    Returns a summary of each movie (compact fields like id, title, year,
-    status, monitored). Use describe_movie with an ID for full details.
-    Use the grep parameter to filter by regex across all fields.
-    """
+    """List all movies in Radarr with summary info. Use describe_movie for full details."""
     api = radarr.MovieApi(client)
     all_movies = await radarr_api_call(api.list_movie)
     filtered = grep_filter(all_movies, grep)
@@ -47,11 +42,7 @@ async def radarr_describe_movie(
     id: Annotated[int, "The Radarr movie ID"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Get full details for a specific movie by ID.
-
-    Returns the complete API response including all nested data like
-    ratings, collection, images, file info, and more.
-    """
+    """Get full details for a specific movie by ID."""
     api = radarr.MovieApi(client)
     try:
         result = await radarr_api_call(api.get_movie_by_id, id=id)
@@ -70,12 +61,7 @@ async def radarr_lookup_movie(
     imdb_id: Annotated[str | None, "IMDB ID to look up (e.g., tt1234567)"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Search for movies to add to Radarr.
-
-    Provide exactly one of: term (title search), tmdb_id, or imdb_id.
-    Returns matching movies from TMDB. Use the tmdbId from results
-    when calling add_movie.
-    """
+    """Search TMDB for movies to add. Provide one of: term, tmdb_id, or imdb_id."""
     if sum(x is not None for x in (term, tmdb_id, imdb_id)) != 1:
         return {
             "error": "invalid_params",
@@ -114,12 +100,7 @@ async def radarr_add_movie(
     ] = "released",
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Add a new movie to Radarr.
-
-    First use lookup_movie to find the TMDB ID. Use list_quality_profiles
-    and list_root_folders to see available options.
-    Accepts either names or numeric IDs for quality_profile and root_folder.
-    """
+    """Add a movie to Radarr by tmdbId. Use lookup_movie, list_quality_profiles, and list_root_folders first."""
     api = radarr.MovieApi(client)
 
     # Resolve human-friendly names to IDs
@@ -176,11 +157,7 @@ async def radarr_update_movie(
     tags: Annotated[list[str | int] | None, "Set tags (names or IDs)"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Update an existing movie in Radarr.
-
-    Only provided fields are changed. Use describe_movie first to see
-    current values.
-    """
+    """Update an existing movie in Radarr. Only provided fields are changed."""
     api = radarr.MovieApi(client)
 
     try:
@@ -221,12 +198,7 @@ async def radarr_delete_movie(
     ] = False,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Delete a movie from Radarr.
-
-    This removes the movie from Radarr's database. If delete_files is True,
-    the actual media files will also be removed from disk. This action cannot
-    be undone.
-    """
+    """Delete a movie from Radarr. If delete_files is True, media files are also removed from disk."""
     api = radarr.MovieApi(client)
     try:
         await radarr_api_call(

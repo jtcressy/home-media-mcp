@@ -23,10 +23,7 @@ async def radarr_get_calendar(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Get upcoming movie releases from the Radarr calendar.
-
-    Without date parameters, returns movies with upcoming releases.
-    """
+    """Get upcoming movie releases from the Radarr calendar."""
     api = radarr.CalendarApi(client)
     kwargs: dict[str, Any] = {}
     if start is not None:

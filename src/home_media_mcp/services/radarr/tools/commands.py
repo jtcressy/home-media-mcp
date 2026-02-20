@@ -2,6 +2,8 @@
 
 from typing import Annotated, Any
 
+from pydantic import Field
+
 import radarr
 from fastmcp.dependencies import Depends
 
@@ -9,6 +11,7 @@ from home_media_mcp.server import mcp
 from home_media_mcp.services.radarr.server import (
     get_radarr_client,
     radarr_api_call,
+    radarr_post_command,
 )
 from home_media_mcp.utils import full_detail, summarize_list
 
@@ -20,44 +23,21 @@ from home_media_mcp.utils import full_detail, summarize_list
 async def radarr_run_command(
     name: Annotated[
         str,
-        "Command name: RefreshMovie, RescanMovie, MoviesSearch, "
-        "RssSync, RenameFiles, RenameMovie, Backup, "
-        "MissingMoviesSearch, CutoffUnmetMoviesSearch, "
-        "RefreshCollections, RefreshMonitoredDownloads",
+        Field(
+            description="Command name: RefreshMovie, RescanMovie, MoviesSearch, RssSync, RenameFiles, RenameMovie, Backup, MissingMoviesSearch, CutoffUnmetMoviesSearch, RefreshCollections, RefreshMonitoredDownloads"
+        ),
     ],
     movie_ids: Annotated[
         list[int] | None, "Movie IDs (for movie-specific commands)"
     ] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Execute a Radarr command.
-
-    Triggers background tasks like movie refresh, RSS sync, search, etc.
-    Returns the command status (use describe_command to check progress).
-    """
+    """Execute a Radarr background command."""
     body: dict[str, Any] = {"name": name}
     if movie_ids is not None:
         body["movieIds"] = movie_ids
 
-    def _post_command():
-        _param = client.param_serialize(
-            method="POST",
-            resource_path="/api/v3/command",
-            header_params={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            body=body,
-            auth_settings=["apikey", "X-Api-Key"],
-        )
-        response_data = client.call_api(*_param)
-        response_data.read()
-        return client.response_deserialize(
-            response_data=response_data,
-            response_types_map={"2XX": "CommandResource"},
-        ).data
-
-    result = await radarr_api_call(_post_command)
+    result = await radarr_post_command(client, body)
     return full_detail(result)
 
 

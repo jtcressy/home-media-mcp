@@ -23,10 +23,7 @@ async def sonarr_list_missing(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List episodes that are monitored but missing (not downloaded).
-
-    Returns paginated list of wanted episodes.
-    """
+    """List monitored episodes that are missing (not downloaded)."""
     api = sonarr.MissingApi(client)
     result = await sonarr_api_call(
         api.get_wanted_missing, page=page, page_size=page_size
@@ -46,11 +43,7 @@ async def sonarr_list_cutoff_unmet(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List episodes that don't meet their quality profile cutoff.
-
-    These episodes have been downloaded but in a quality below the cutoff
-    defined in their quality profile.
-    """
+    """List downloaded episodes that don't meet their quality profile cutoff."""
     api = sonarr.CutoffApi(client)
     result = await sonarr_api_call(
         api.get_wanted_cutoff, page=page, page_size=page_size

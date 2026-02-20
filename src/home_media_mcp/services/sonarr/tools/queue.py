@@ -21,10 +21,7 @@ async def sonarr_list_queue(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List items currently in the Sonarr download queue.
-
-    Shows what's being downloaded, their progress, and status.
-    """
+    """List items currently in the Sonarr download queue."""
     api = sonarr.QueueDetailsApi(client)
     queue = await sonarr_api_call(api.list_queue_details)
     filtered = grep_filter(queue, grep)
@@ -39,10 +36,7 @@ async def sonarr_describe_queue_item(
     id: Annotated[int, "The queue item ID"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get full details for a specific queue item.
-
-    Includes download progress, status messages, quality, and indexer info.
-    """
+    """Get full details for a specific queue item."""
     api = sonarr.QueueDetailsApi(client)
     # Queue details returns all items; find the one we want
     items = await sonarr_api_call(api.list_queue_details)
@@ -60,10 +54,7 @@ async def sonarr_grab_queue_item(
     id: Annotated[int, "The queue item ID to grab/force download"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Force grab a pending queue item.
-
-    This forces the download of an item that may be delayed or waiting.
-    """
+    """Force grab a pending queue item."""
     api = sonarr.QueueApi(client)
     await sonarr_api_call(
         api.create_queue_grab_selected,
@@ -86,10 +77,7 @@ async def sonarr_remove_queue_item(
     ] = True,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Remove an item from the download queue.
-
-    Optionally blocklist the release and/or remove it from the download client.
-    """
+    """Remove an item from the download queue."""
     api = sonarr.QueueApi(client)
     await sonarr_api_call(
         api.delete_queue,

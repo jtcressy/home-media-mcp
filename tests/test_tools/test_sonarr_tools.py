@@ -177,7 +177,7 @@ async def test_sonarr_list_episodes(patched_mcp):
 
 @pytest.mark.asyncio
 async def test_sonarr_list_history_uses_get_history(patched_mcp):
-    """Must use get_history (not list_history) on HistoryApi."""
+    """Must use get_history (not list_history) on HistoryApi when series_id is None."""
     mock_api = MagicMock()
     mock_api.get_history.return_value = make_mock_paged([_mock_history_record()])
 
@@ -193,19 +193,18 @@ async def test_sonarr_list_history_uses_get_history(patched_mcp):
 
 
 @pytest.mark.asyncio
-async def test_sonarr_list_series_history_uses_list_history_series(patched_mcp):
-    """Must use list_history_series (not list_history) for per-series history."""
+async def test_sonarr_list_history_with_series_id(patched_mcp):
+    """When series_id is provided, must use list_history_series (not get_history)."""
     mock_api = MagicMock()
     mock_api.list_history_series.return_value = [_mock_history_record()]
 
     with patch("sonarr.HistoryApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
-            result = await client.call_tool(
-                "sonarr_list_series_history", {"series_id": 1}
-            )
+            result = await client.call_tool("sonarr_list_history", {"series_id": 1})
 
     mock_api.list_history_series.assert_called_once_with(series_id=1)
-    mock_api.list_history.assert_not_called()
+    mock_api.get_history.assert_not_called()
+    assert result.data["summary"]["total"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -565,14 +564,14 @@ async def test_sonarr_describe_episode_not_found(patched_mcp):
 
 
 @pytest.mark.asyncio
-async def test_sonarr_monitor_episodes_happy_path(patched_mcp):
+async def test_sonarr_update_episodes(patched_mcp):
     mock_api = MagicMock()
     mock_api.put_episode_monitor.return_value = None
 
     with patch("sonarr.EpisodeApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
             result = await client.call_tool(
-                "sonarr_monitor_episodes",
+                "sonarr_update_episodes",
                 {"episode_ids": [1, 2, 3], "monitored": True},
             )
 

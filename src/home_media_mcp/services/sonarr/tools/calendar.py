@@ -23,10 +23,7 @@ async def sonarr_get_calendar(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get upcoming episodes from the Sonarr calendar.
-
-    Without date parameters, returns episodes airing in the near future.
-    """
+    """Get upcoming episodes from the Sonarr calendar."""
     api = sonarr.CalendarApi(client)
     kwargs: dict[str, Any] = {}
     if start is not None:

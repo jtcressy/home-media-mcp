@@ -25,11 +25,7 @@ async def sonarr_preview_rename(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Preview how episode files would be renamed.
-
-    Shows the current filename and the new filename based on Sonarr's
-    naming configuration. Use run_command with 'RenameFiles' to execute.
-    """
+    """Preview how episode files would be renamed based on Sonarr's naming config."""
     api = sonarr.RenameEpisodeApi(client)
     kwargs: dict[str, Any] = {"series_id": series_id}
     if season_number is not None:

@@ -21,10 +21,7 @@ async def radarr_list_collections(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List all movie collections in Radarr.
-
-    Collections group related movies (e.g., trilogies, franchises).
-    """
+    """List all movie collections in Radarr."""
     api = radarr.CollectionApi(client)
     results = await radarr_api_call(api.list_collection)
     filtered = grep_filter(results, grep)
@@ -65,10 +62,7 @@ async def radarr_update_collection(
     ] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Update a movie collection's settings.
-
-    Changes apply to all movies in the collection.
-    """
+    """Update a movie collection's settings. Changes apply to all movies in the collection."""
     api = radarr.CollectionApi(client)
 
     try:

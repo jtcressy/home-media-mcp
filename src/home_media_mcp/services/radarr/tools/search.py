@@ -22,15 +22,7 @@ async def radarr_search_releases(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Search indexers for available releases of a specific movie.
-
-    Returns available downloads with their quality, size, indexer, and details.
-    Use download_release with the guid and indexerId to download one.
-
-    IMPORTANT: Each release includes 'guid' and 'indexerId' fields which are
-    required for download_release. Other useful fields: title, size, quality,
-    customFormatScore, approved, rejected.
-    """
+    """Search indexers for releases of a movie. Use download_release with the guid and indexerId from results."""
     api = radarr.ReleaseApi(client)
     releases = await radarr_api_call(api.list_release, movie_id=movie_id)
     filtered = grep_filter(releases, grep)

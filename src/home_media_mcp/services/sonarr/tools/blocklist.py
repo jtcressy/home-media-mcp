@@ -23,10 +23,7 @@ async def sonarr_list_blocklist(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List blocklisted releases in Sonarr.
-
-    Blocklisted releases won't be downloaded again by Sonarr.
-    """
+    """List blocklisted releases in Sonarr."""
     api = sonarr.BlocklistApi(client)
     result = await sonarr_api_call(api.get_blocklist, page=page, page_size=page_size)
     records = result.records or []
@@ -42,10 +39,7 @@ async def sonarr_remove_blocklist_item(
     id: Annotated[int, "The blocklist item ID to remove"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Remove an item from the blocklist.
-
-    This allows Sonarr to re-download the previously blocked release.
-    """
+    """Remove an item from the blocklist to allow re-downloading."""
     api = sonarr.BlocklistApi(client)
     await sonarr_api_call(api.delete_blocklist, id=id)
     return {"success": True, "message": f"Blocklist item {id} removed."}

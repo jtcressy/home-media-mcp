@@ -23,10 +23,7 @@ async def radarr_list_missing(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List movies that are monitored but missing (not downloaded).
-
-    Returns paginated list of wanted movies.
-    """
+    """List monitored movies that are missing (not downloaded)."""
     api = radarr.MissingApi(client)
     result = await radarr_api_call(
         api.get_wanted_missing, page=page, page_size=page_size
@@ -46,10 +43,7 @@ async def radarr_list_cutoff_unmet(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List movies that don't meet their quality profile cutoff.
-
-    These movies have been downloaded but in a quality below the cutoff.
-    """
+    """List downloaded movies that don't meet their quality profile cutoff."""
     api = radarr.CutoffApi(client)
     result = await radarr_api_call(
         api.get_wanted_cutoff, page=page, page_size=page_size

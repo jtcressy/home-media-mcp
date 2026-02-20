@@ -2,6 +2,8 @@
 
 from typing import Annotated, Any
 
+from pydantic import Field
+
 import sonarr
 from fastmcp.dependencies import Depends
 
@@ -9,6 +11,7 @@ from home_media_mcp.server import mcp
 from home_media_mcp.services.sonarr.server import (
     get_sonarr_client,
     sonarr_api_call,
+    sonarr_post_command,
 )
 from home_media_mcp.utils import full_detail, summarize_list
 
@@ -20,20 +23,16 @@ from home_media_mcp.utils import full_detail, summarize_list
 async def sonarr_run_command(
     name: Annotated[
         str,
-        "Command name: RefreshSeries, RescanSeries, EpisodeSearch, "
-        "SeasonSearch, SeriesSearch, RssSync, RenameFiles, RenameSeries, "
-        "Backup, MissingEpisodeSearch, CutoffUnmetEpisodeSearch",
+        Field(
+            description="Command name: RefreshSeries, RescanSeries, EpisodeSearch, SeasonSearch, SeriesSearch, RssSync, RenameFiles, RenameSeries, Backup, MissingEpisodeSearch, CutoffUnmetEpisodeSearch"
+        ),
     ],
     series_id: Annotated[int | None, "Series ID (for series-specific commands)"] = None,
     season_number: Annotated[int | None, "Season number (for SeasonSearch)"] = None,
     episode_ids: Annotated[list[int] | None, "Episode IDs (for EpisodeSearch)"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Execute a Sonarr command.
-
-    Triggers background tasks like series refresh, RSS sync, episode search, etc.
-    Returns the command status (use describe_command to check progress).
-    """
+    """Execute a Sonarr background command."""
     body: dict[str, Any] = {"name": name}
     if series_id is not None:
         body["seriesId"] = series_id
@@ -42,25 +41,7 @@ async def sonarr_run_command(
     if episode_ids is not None:
         body["episodeIds"] = episode_ids
 
-    def _post_command():
-        _param = client.param_serialize(
-            method="POST",
-            resource_path="/api/v3/command",
-            header_params={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            body=body,
-            auth_settings=["apikey", "X-Api-Key"],
-        )
-        response_data = client.call_api(*_param)
-        response_data.read()
-        return client.response_deserialize(
-            response_data=response_data,
-            response_types_map={"2XX": "CommandResource"},
-        ).data
-
-    result = await sonarr_api_call(_post_command)
+    result = await sonarr_post_command(client, body)
     return full_detail(result)
 
 
@@ -71,10 +52,7 @@ async def sonarr_run_command(
 async def sonarr_list_commands(
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List recent and currently running Sonarr commands.
-
-    Shows command status (queued, started, completed, failed).
-    """
+    """List recent and currently running Sonarr commands."""
     api = sonarr.CommandApi(client)
     results = await sonarr_api_call(api.list_command)
     return summarize_list(results)
@@ -88,10 +66,7 @@ async def sonarr_describe_command(
     id: Annotated[int, "The command ID"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get the status of a specific command.
-
-    Use after run_command to check if it completed successfully.
-    """
+    """Get the status of a specific command."""
     api = sonarr.CommandApi(client)
     try:
         result = await sonarr_api_call(api.get_command_by_id, id=id)

@@ -63,12 +63,7 @@ async def radarr_list_logs(
     grep: Annotated[str | None, "Regex pattern to filter log messages"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Get Radarr log entries.
-
-    Shows recent log messages including errors, warnings, and info.
-    Use the 'level' parameter to filter by severity.
-    Use the 'grep' parameter to search for specific text in messages.
-    """
+    """Get Radarr log entries."""
     api = radarr.LogApi(client)
     kwargs: dict[str, Any] = {"page": page, "page_size": page_size}
     if level is not None:

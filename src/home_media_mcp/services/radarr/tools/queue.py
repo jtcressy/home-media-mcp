@@ -21,10 +21,7 @@ async def radarr_list_queue(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List items currently in the Radarr download queue.
-
-    Shows what's being downloaded, their progress, and status.
-    """
+    """List items currently in the Radarr download queue."""
     api = radarr.QueueDetailsApi(client)
     queue = await radarr_api_call(api.list_queue_details)
     filtered = grep_filter(queue, grep)

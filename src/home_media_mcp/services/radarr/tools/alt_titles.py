@@ -21,10 +21,7 @@ async def radarr_list_alternative_titles(
     movie_id: Annotated[int, "The Radarr movie ID"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List alternative titles for a movie.
-
-    Shows international titles, alternate names, and other known titles.
-    """
+    """List alternative titles for a movie."""
     api = radarr.AlternativeTitleApi(client)
     results = await radarr_api_call(api.list_alttitle, movie_id=movie_id)
     return summarize_list(results)

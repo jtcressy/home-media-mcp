@@ -39,7 +39,7 @@ async def radarr_remove_blocklist_item(
     id: Annotated[int, "The blocklist item ID to remove"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Remove an item from the blocklist."""
+    """Remove an item from the blocklist to allow re-downloading."""
     api = radarr.BlocklistApi(client)
     await radarr_api_call(api.delete_blocklist, id=id)
     return {"success": True, "message": f"Blocklist item {id} removed."}

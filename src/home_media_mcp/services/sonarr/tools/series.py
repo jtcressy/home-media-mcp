@@ -27,12 +27,7 @@ async def sonarr_list_series(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List all series in Sonarr with summary information.
-
-    Returns a summary of each series (compact fields like id, title, year,
-    status, monitored). Use describe_series with an ID for full details.
-    Use the grep parameter to filter by regex across all fields.
-    """
+    """List all series in Sonarr with summary info. Use describe_series for full details."""
     api = sonarr.SeriesApi(client)
     all_series = await sonarr_api_call(api.list_series)
     filtered = grep_filter(all_series, grep)
@@ -47,11 +42,7 @@ async def sonarr_describe_series(
     id: Annotated[int, "The Sonarr series ID"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get full details for a specific series by ID.
-
-    Returns the complete API response including all nested data like
-    seasons, statistics, images, ratings, and more.
-    """
+    """Get full details for a specific series by ID."""
     api = sonarr.SeriesApi(client)
     try:
         result = await sonarr_api_call(api.get_series_by_id, id=id)
@@ -68,11 +59,7 @@ async def sonarr_lookup_series(
     term: Annotated[str, "Search term (title, TVDB ID, or IMDB ID)"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Search for series to add to Sonarr.
-
-    Searches TheTVDB and returns matching series that can be added.
-    Use the tvdbId from results when calling add_series.
-    """
+    """Search TheTVDB for series to add. Use the tvdbId from results with add_series."""
     api = sonarr.SeriesLookupApi(client)
     results = await sonarr_api_call(api.list_series_lookup, term=term)
     return summarize_list(results, preserve_fields=["title", "tvdbId"])
@@ -99,12 +86,7 @@ async def sonarr_add_series(
     ] = True,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Add a new series to Sonarr.
-
-    First use lookup_series to find the TVDB ID. Use list_quality_profiles
-    and list_root_folders to see available options for those parameters.
-    Accepts either names or numeric IDs for quality_profile and root_folder.
-    """
+    """Add a series to Sonarr by tvdbId. Use lookup_series, list_quality_profiles, and list_root_folders first."""
     api = sonarr.SeriesApi(client)
 
     # Resolve human-friendly names to IDs
@@ -159,11 +141,7 @@ async def sonarr_update_series(
     tags: Annotated[list[str | int] | None, "Set tags (names or IDs)"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Update an existing series in Sonarr.
-
-    Only provided fields are changed. Use describe_series first to see
-    current values.
-    """
+    """Update series-level settings. For per-season or per-episode monitoring, use update_season or update_episodes instead."""
     api = sonarr.SeriesApi(client)
 
     try:
@@ -205,12 +183,7 @@ async def sonarr_delete_series(
     delete_files: Annotated[bool, "Also delete the series files from disk"] = False,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Delete a series from Sonarr.
-
-    This removes the series from Sonarr's database. If delete_files is True,
-    the actual media files will also be removed from disk. This action cannot
-    be undone.
-    """
+    """Delete a series from Sonarr. If delete_files is True, media files are also removed from disk."""
     api = sonarr.SeriesApi(client)
     try:
         await sonarr_api_call(api.delete_series, id=id, delete_files=delete_files)

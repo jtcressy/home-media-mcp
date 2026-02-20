@@ -22,11 +22,7 @@ async def sonarr_list_episode_files(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """List all episode files for a series.
-
-    Returns summary information about each file. Use describe_episode_file
-    for full details including quality, media info, and file path.
-    """
+    """List all episode files for a series. Use describe_episode_file for full details."""
     api = sonarr.EpisodeFileApi(client)
     files = await sonarr_api_call(api.list_episode_file, series_id=series_id)
     filtered = grep_filter(files, grep)
@@ -41,10 +37,7 @@ async def sonarr_describe_episode_file(
     id: Annotated[int, "The Sonarr episode file ID"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Get full details for a specific episode file.
-
-    Includes quality, media info, languages, path, size, and more.
-    """
+    """Get full details for a specific episode file."""
     api = sonarr.EpisodeFileApi(client)
     try:
         result = await sonarr_api_call(api.get_episode_file_by_id, id=id)
@@ -64,11 +57,7 @@ async def sonarr_delete_episode_file(
     id: Annotated[int, "The Sonarr episode file ID to delete"],
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Delete an episode file from disk.
-
-    This permanently removes the file. The episode will show as missing
-    in Sonarr. This action cannot be undone.
-    """
+    """Delete an episode file from disk permanently."""
     api = sonarr.EpisodeFileApi(client)
     try:
         await sonarr_api_call(api.delete_episode_file, id=id)

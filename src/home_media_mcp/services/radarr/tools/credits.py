@@ -22,10 +22,7 @@ async def radarr_list_credits(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List cast and crew credits for a movie.
-
-    Returns actors, directors, writers, and other crew members.
-    """
+    """List cast and crew credits for a movie."""
     api = radarr.CreditApi(client)
     results = await radarr_api_call(api.get_credit, movie_id=movie_id)
     filtered = grep_filter(results or [], grep)

@@ -2,6 +2,8 @@
 
 from typing import Annotated, Any
 
+from pydantic import Field
+
 import radarr
 from fastmcp.dependencies import Depends
 
@@ -9,6 +11,7 @@ from home_media_mcp.server import mcp
 from home_media_mcp.services.radarr.server import (
     get_radarr_client,
     radarr_api_call,
+    radarr_post_command,
 )
 from home_media_mcp.utils import grep_filter, summarize_list
 
@@ -19,25 +22,16 @@ from home_media_mcp.utils import grep_filter, summarize_list
 )
 async def radarr_preview_manual_import(
     folder: Annotated[str, "Path to folder to scan for importable files"],
-    movie_id: Annotated[int | None, "Optionally filter to a specific movie"] = None,
+    movie_id: Annotated[
+        int | None,
+        Field(
+            description="Optionally filter to a specific movie. WARNING: may return 500 if the movie folder doesn't exist yet. Omit for new downloads."
+        ),
+    ] = None,
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Preview files available for manual import from a folder.
-
-    Scans the folder and shows what Radarr detected: matched movie,
-    quality, languages, and any rejection reasons.
-
-    IMPORTANT WORKFLOW:
-    1. Call this WITHOUT movie_id first to see detected files
-    2. Each file in the response has an 'id' field - note this
-    3. For execute_manual_import, copy ALL fields from preview and ADD:
-       - movieId: The Radarr movie ID (from describe_movie or list_movies)
-    4. The path, quality, languages, and other fields come from preview
-
-    WARNING: Passing movie_id may fail with 500 if the movie's destination
-    folder doesn't exist yet (new movies). Use WITHOUT movie_id for new downloads.
-    """
+    """Scan a folder and preview what Radarr would import."""
     api = radarr.ManualImportApi(client)
     kwargs: dict[str, Any] = {"folder": folder}
     if movie_id is not None:
@@ -74,9 +68,9 @@ async def radarr_preview_manual_import(
 async def radarr_execute_manual_import(
     files: Annotated[
         list[dict],
-        "List of import specifications. Each dict MUST include: "
-        "movieId, path, quality, languages. "
-        "Optional: downloadId, folderName, releaseGroup, indexerFlags.",
+        Field(
+            description="List of file dicts. Each requires: movieId (int), path (str), quality (object from preview), languages (list from preview). Optional: downloadId, folderName, releaseGroup, indexerFlags."
+        ),
     ],
     import_mode: Annotated[
         str,
@@ -85,36 +79,7 @@ async def radarr_execute_manual_import(
     ] = "auto",
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Execute a manual import for the specified files.
-
-    Triggers the actual file import via Radarr's ManualImport command.
-    This moves/copies the file into the movie folder and registers it
-    in Radarr's database.
-
-    REQUIRED FIELDS for each file dict:
-    - movieId: The Radarr movie ID to import into
-    - path: Full path to the file
-    - quality: Quality object with nested 'quality' (from preview)
-    - languages: Array of language objects (from preview)
-
-    OPTIONAL FIELDS:
-    - downloadId: The SABnzbd/NZBGet download ID (strongly recommended when
-      importing from a completed download - lets Radarr mark it as imported)
-    - folderName: Folder name hint for release parsing
-    - releaseGroup: Release group name
-    - indexerFlags: Indexer flags integer (default 0)
-
-    EXAMPLE file dict:
-    {
-        \"movieId\": 42,
-        \"path\": \"/downloads/complete/Movie.2024/Movie.2024.mkv\",
-        \"quality\": {\"quality\": {\"id\": 15, \"name\": \"WEBRip-1080p\"}},
-        \"languages\": [{\"id\": 1, \"name\": \"English\"}],
-        \"downloadId\": \"SABnzbd_nzo_xxx\"
-    }
-
-    Always call preview_manual_import first to get the path and quality details.
-    """
+    """Execute a manual import for files prepared via preview_manual_import."""
     # Fields accepted by Radarr's ManualImportFile (camelCase, matches JSON API)
     valid_file_fields = {
         "path",
@@ -140,25 +105,7 @@ async def radarr_execute_manual_import(
         "files": clean_files,
     }
 
-    def _post_command():
-        _param = client.param_serialize(
-            method="POST",
-            resource_path="/api/v3/command",
-            header_params={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            body=body,
-            auth_settings=["apikey", "X-Api-Key"],
-        )
-        response_data = client.call_api(*_param)
-        response_data.read()
-        return client.response_deserialize(
-            response_data=response_data,
-            response_types_map={"2XX": "CommandResource"},
-        ).data
-
-    result = await radarr_api_call(_post_command)
+    result = await radarr_post_command(client, body)
     return {
         "success": True,
         "message": f"ManualImport command queued for {len(files)} file(s).",

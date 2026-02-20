@@ -21,10 +21,7 @@ async def radarr_list_exclusions(
     grep: Annotated[str | None, "Regex pattern to filter results"] = None,
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List import exclusions (movies that won't be auto-imported).
-
-    Import exclusions prevent movies from being added by import lists.
-    """
+    """List import exclusions (movies that won't be auto-imported)."""
     api = radarr.ImportListExclusionApi(client)
     results = await radarr_api_call(api.list_exclusions)
     filtered = grep_filter(results, grep)
@@ -41,10 +38,7 @@ async def radarr_add_exclusion(
     movie_year: Annotated[int, "Release year of the movie"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Add a movie to the import exclusion list.
-
-    This prevents the movie from being added by import lists.
-    """
+    """Add a movie to the import exclusion list."""
     api = radarr.ImportListExclusionApi(client)
     resource = radarr.ImportListExclusionResource(
         tmdb_id=tmdb_id,
@@ -68,10 +62,7 @@ async def radarr_remove_exclusion(
     id: Annotated[int, "The exclusion ID to remove"],
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """Remove a movie from the import exclusion list.
-
-    This allows import lists to add the movie again.
-    """
+    """Remove a movie from the import exclusion list."""
     api = radarr.ImportListExclusionApi(client)
     await radarr_api_call(api.delete_exclusions, id=id)
     return {"success": True, "message": f"Exclusion {id} removed."}

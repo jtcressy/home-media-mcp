@@ -20,11 +20,7 @@ from home_media_mcp.utils import full_detail, summarize_list
 async def radarr_list_quality_profiles(
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List all quality profiles configured in Radarr.
-
-    Quality profiles define which qualities are acceptable for movies.
-    Needed when adding movies.
-    """
+    """List all quality profiles configured in Radarr."""
     api = radarr.QualityProfileApi(client)
     results = await radarr_api_call(api.list_quality_profile)
     return summarize_list(results)
@@ -87,11 +83,7 @@ async def radarr_describe_tag(
 async def radarr_list_root_folders(
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
-    """List all root folders configured in Radarr.
-
-    Root folders are the base directories where movies are stored.
-    Needed when adding new movies.
-    """
+    """List all root folders configured in Radarr."""
     api = radarr.RootFolderApi(client)
     results = await radarr_api_call(api.list_root_folder)
     return summarize_list(results)
