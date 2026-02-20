@@ -75,30 +75,37 @@ async def radarr_execute_manual_import(
     files: Annotated[
         list[dict],
         "List of import specifications. Each dict MUST include: "
-        "id (from preview), movieId, path, quality, languages. "
-        "Optional: downloadId, customFormats, customFormatScore, indexerFlags, releaseGroup.",
+        "movieId, path, quality, languages. "
+        "Optional: downloadId, folderName, releaseGroup, indexerFlags.",
     ],
+    import_mode: Annotated[
+        str,
+        "Import mode: 'move' (move file), 'copy' (hardlink/copy), or 'auto' "
+        "(let Radarr decide based on download client settings). Default: 'auto'.",
+    ] = "auto",
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
     """Execute a manual import for the specified files.
 
+    Triggers the actual file import via Radarr's ManualImport command.
+    This moves/copies the file into the movie folder and registers it
+    in Radarr's database.
+
     REQUIRED FIELDS for each file dict:
-    - id: The file ID from preview_manual_import
     - movieId: The Radarr movie ID to import into
     - path: Full path to the file
-    - quality: Object with 'quality' nested (e.g., {quality: {id: 15, name: \"WEBRip-1080p\"}})
-    - languages: Array of language objects (e.g., [{id: 1, name: \"English\"}])
+    - quality: Quality object with nested 'quality' (from preview)
+    - languages: Array of language objects (from preview)
 
-    OPTIONAL FIELDS (from preview):
-    - downloadId: The download ID if importing from a completed download
-    - customFormats: Array of custom format objects
-    - customFormatScore: Custom format score
-    - indexerFlags: Indexer flags
+    OPTIONAL FIELDS:
+    - downloadId: The SABnzbd/NZBGet download ID (strongly recommended when
+      importing from a completed download - lets Radarr mark it as imported)
+    - folderName: Folder name hint for release parsing
     - releaseGroup: Release group name
+    - indexerFlags: Indexer flags integer (default 0)
 
     EXAMPLE file dict:
     {
-        \"id\": 123456,
         \"movieId\": 42,
         \"path\": \"/downloads/complete/Movie.2024/Movie.2024.mkv\",
         \"quality\": {\"quality\": {\"id\": 15, \"name\": \"WEBRip-1080p\"}},
@@ -106,37 +113,55 @@ async def radarr_execute_manual_import(
         \"downloadId\": \"SABnzbd_nzo_xxx\"
     }
 
-    Always call preview_manual_import first to get file details.
-    Copy the id and other relevant fields from the preview response.
+    Always call preview_manual_import first to get the path and quality details.
     """
-    api = radarr.ManualImportApi(client)
-    valid_fields = {
-        "id",
+    # Fields accepted by Radarr's ManualImportFile (camelCase, matches JSON API)
+    valid_file_fields = {
         "path",
+        "folderName",
         "movieId",
-        "movie_id",
         "quality",
         "languages",
         "releaseGroup",
-        "release_group",
-        "downloadId",
-        "download_id",
-        "customFormats",
-        "custom_formats",
-        "customFormatScore",
-        "custom_format_score",
         "indexerFlags",
-        "indexer_flags",
+        "downloadId",
     }
-    filtered_files = []
+    clean_files = []
     for f in files:
-        filtered = {k: v for k, v in f.items() if k in valid_fields}
-        filtered_files.append(filtered)
-    resources = [radarr.ManualImportReprocessResource(**f) for f in filtered_files]
-    await radarr_api_call(
-        api.create_manual_import, manual_import_reprocess_resource=resources
-    )
+        clean_files.append({k: v for k, v in f.items() if k in valid_file_fields})
+
+    # POST to /api/v3/command with name="ManualImport" as a plain dict.
+    # We bypass CommandResource (which doesn't have 'files'/'importMode' fields)
+    # and use the client's param_serialize/call_api infrastructure directly so
+    # that the plain dict body is passed through sanitize_for_serialization as-is.
+    body = {
+        "name": "ManualImport",
+        "importMode": import_mode,
+        "files": clean_files,
+    }
+
+    def _post_command():
+        _param = client.param_serialize(
+            method="POST",
+            resource_path="/api/v3/command",
+            header_params={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            body=body,
+            auth_settings=["apikey", "X-Api-Key"],
+        )
+        response_data = client.call_api(*_param)
+        response_data.read()
+        return client.response_deserialize(
+            response_data=response_data,
+            response_types_map={"2XX": "CommandResource"},
+        ).data
+
+    result = await radarr_api_call(_post_command)
     return {
         "success": True,
-        "message": f"Manual import started for {len(files)} file(s).",
+        "message": f"ManualImport command queued for {len(files)} file(s).",
+        "commandId": result.id if result else None,
+        "status": result.status if result else None,
     }

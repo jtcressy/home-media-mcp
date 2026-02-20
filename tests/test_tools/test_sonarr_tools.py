@@ -835,19 +835,43 @@ async def test_sonarr_preview_manual_import_with_series_id(patched_mcp):
 
 
 @pytest.mark.asyncio
-async def test_sonarr_execute_manual_import_happy_path(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.create_manual_import.return_value = None
+async def test_sonarr_execute_manual_import_happy_path(patched_mcp, mock_sonarr_client):
+    # The new implementation bypasses ManualImportApi and POSTs directly via the
+    # ApiClient's low-level methods: param_serialize -> call_api -> response_deserialize.
+    # FastMCP's Depends injects the client via an async context manager (__aenter__),
+    # so we must configure __aenter__ to return the mock itself (not a new AsyncMock).
+    from unittest.mock import AsyncMock
 
-    with patch("sonarr.ManualImportApi", return_value=mock_api):
-        async with Client(patched_mcp) as client:
-            result = await client.call_tool(
-                "sonarr_execute_manual_import",
-                {"files": [{"path": "/dl/ep.mkv", "seriesId": 1, "episodeIds": [10]}]},
-            )
+    mock_response_data = MagicMock()
+    mock_response_data.read.return_value = None
 
-    mock_api.create_manual_import.assert_called_once()
+    mock_command = MagicMock()
+    mock_command.id = 99
+    mock_command.status = "queued"
+
+    mock_deser_result = MagicMock()
+    mock_deser_result.data = mock_command
+
+    # Make the async context manager return the mock itself
+    mock_sonarr_client.__aenter__ = AsyncMock(return_value=mock_sonarr_client)
+    mock_sonarr_client.__aexit__ = AsyncMock(return_value=None)
+
+    # Use plain MagicMock for synchronous methods so *_param unpacking gets a real tuple
+    param_tuple = ("POST", "/api/v3/command", {}, {}, {}, None, None, None, None)
+    mock_sonarr_client.param_serialize = MagicMock(return_value=param_tuple)
+    mock_sonarr_client.call_api = MagicMock(return_value=mock_response_data)
+    mock_sonarr_client.response_deserialize = MagicMock(return_value=mock_deser_result)
+
+    async with Client(patched_mcp) as client:
+        result = await client.call_tool(
+            "sonarr_execute_manual_import",
+            {"files": [{"path": "/dl/ep.mkv", "seriesId": 1, "episodeIds": [10]}]},
+        )
+
+    mock_sonarr_client.param_serialize.assert_called_once()
+    mock_sonarr_client.call_api.assert_called_once()
     assert result.data["success"] is True
+    assert result.data["commandId"] == 99
 
 
 # ---------------------------------------------------------------------------
