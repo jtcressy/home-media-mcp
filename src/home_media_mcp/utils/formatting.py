@@ -75,6 +75,7 @@ def summarize_list(
     items: list[BaseModel],
     max_fields: int = 10,
     summary_fn: Callable[[list[BaseModel]], dict[str, Any]] | None = None,
+    preserve_fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Format a list of items as a summary response.
 
@@ -84,6 +85,9 @@ def summarize_list(
         summary_fn: Optional callback that takes the full items list and
             returns additional aggregate stats for the summary field.
             For example: {"monitored": 32, "unmonitored": 15}
+        preserve_fields: Optional list of field names that must be included
+            in each item summary, even if they're large. These are added
+            after the max_fields limit.
 
     Returns:
         A dict with:
@@ -97,8 +101,24 @@ def summarize_list(
 
     return {
         "summary": summary,
-        "items": [summarize_item(item, max_fields=max_fields) for item in items],
+        "items": [
+            _summarize_item_with_preserve(item, max_fields, preserve_fields)
+            for item in items
+        ],
     }
+
+
+def _summarize_item_with_preserve(
+    item: BaseModel, max_fields: int = 10, preserve_fields: list[str] | None = None
+) -> dict[str, Any]:
+    """Like summarize_item but ensures preserve_fields are always included."""
+    result = summarize_item(item, max_fields=max_fields)
+    if preserve_fields:
+        full = _make_serializable(item.to_dict())
+        for field in preserve_fields:
+            if field in full and field not in result:
+                result[field] = full[field]
+    return result
 
 
 def full_detail(item: BaseModel) -> dict[str, Any]:

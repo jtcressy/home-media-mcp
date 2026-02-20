@@ -25,12 +25,18 @@ async def sonarr_search_releases(
     """Search indexers for available releases of a specific episode.
 
     Returns available downloads with their quality, size, indexer, and other details.
-    Use download_release to download one.
+    Use download_release with the guid and indexerId to download one.
+
+    IMPORTANT: Each release includes 'guid' and 'indexerId' fields which are
+    required for download_release. Other useful fields: title, size, quality,
+    customFormatScore, approved, rejected.
     """
     api = sonarr.ReleaseApi(client)
     releases = await sonarr_api_call(api.list_release, episode_id=episode_id)
     filtered = grep_filter(releases, grep)
-    return summarize_list(filtered)
+    return summarize_list(
+        filtered, preserve_fields=["guid", "indexerId", "title", "size", "approved"]
+    )
 
 
 @mcp.tool(

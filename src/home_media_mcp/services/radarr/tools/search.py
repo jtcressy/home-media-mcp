@@ -25,12 +25,18 @@ async def radarr_search_releases(
     """Search indexers for available releases of a specific movie.
 
     Returns available downloads with their quality, size, indexer, and details.
-    Use download_release to download one.
+    Use download_release with the guid and indexerId to download one.
+
+    IMPORTANT: Each release includes 'guid' and 'indexerId' fields which are
+    required for download_release. Other useful fields: title, size, quality,
+    customFormatScore, approved, rejected.
     """
     api = radarr.ReleaseApi(client)
     releases = await radarr_api_call(api.list_release, movie_id=movie_id)
     filtered = grep_filter(releases, grep)
-    return summarize_list(filtered)
+    return summarize_list(
+        filtered, preserve_fields=["guid", "indexerId", "title", "size", "approved"]
+    )
 
 
 @mcp.tool(
