@@ -25,7 +25,7 @@ async def radarr_list_blocklist(
 ) -> dict[str, Any]:
     """List blocklisted releases in Radarr."""
     api = radarr.BlocklistApi(client)
-    result = await radarr_api_call(api.list_blocklist, page=page, page_size=page_size)
+    result = await radarr_api_call(api.get_blocklist, page=page, page_size=page_size)
     records = result.records or []
     filtered = grep_filter(records, grep)
     return summarize_list(filtered)

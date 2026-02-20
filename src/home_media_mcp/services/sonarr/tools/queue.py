@@ -25,7 +25,7 @@ async def sonarr_list_queue(
 
     Shows what's being downloaded, their progress, and status.
     """
-    api = sonarr.QueueApi(client)
+    api = sonarr.QueueDetailsApi(client)
     queue = await sonarr_api_call(api.list_queue_details)
     filtered = grep_filter(queue, grep)
     return summarize_list(filtered)
@@ -43,7 +43,7 @@ async def sonarr_describe_queue_item(
 
     Includes download progress, status messages, quality, and indexer info.
     """
-    api = sonarr.QueueApi(client)
+    api = sonarr.QueueDetailsApi(client)
     # Queue details returns all items; find the one we want
     items = await sonarr_api_call(api.list_queue_details)
     for item in items:

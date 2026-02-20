@@ -28,7 +28,7 @@ async def radarr_list_history(
     Returns paginated history of grabs, downloads, imports, and other events.
     """
     api = radarr.HistoryApi(client)
-    result = await radarr_api_call(api.list_history, page=page, page_size=page_size)
+    result = await radarr_api_call(api.get_history, page=page, page_size=page_size)
     records = result.records or []
     filtered = grep_filter(records, grep)
     return summarize_list(filtered)
@@ -45,7 +45,6 @@ async def radarr_list_movie_history(
 ) -> dict[str, Any]:
     """Get download/import history for a specific movie."""
     api = radarr.HistoryApi(client)
-    result = await radarr_api_call(api.list_history, movie_id=movie_id)
-    records = result.records or []
+    records = await radarr_api_call(api.list_history_movie, movie_id=movie_id)
     filtered = grep_filter(records, grep)
     return summarize_list(filtered)

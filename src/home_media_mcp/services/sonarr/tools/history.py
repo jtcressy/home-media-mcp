@@ -28,7 +28,7 @@ async def sonarr_list_history(
     Returns paginated history of grabs, downloads, imports, and other events.
     """
     api = sonarr.HistoryApi(client)
-    result = await sonarr_api_call(api.list_history, page=page, page_size=page_size)
+    result = await sonarr_api_call(api.get_history, page=page, page_size=page_size)
     records = result.records or []
     filtered = grep_filter(records, grep)
     return summarize_list(filtered)
@@ -45,7 +45,6 @@ async def sonarr_list_series_history(
 ) -> dict[str, Any]:
     """Get download/import history for a specific series."""
     api = sonarr.HistoryApi(client)
-    result = await sonarr_api_call(api.list_history, series_id=series_id)
-    records = result.records or []
+    records = await sonarr_api_call(api.list_history_series, series_id=series_id)
     filtered = grep_filter(records, grep)
     return summarize_list(filtered)

@@ -25,7 +25,7 @@ async def radarr_list_queue(
 
     Shows what's being downloaded, their progress, and status.
     """
-    api = radarr.QueueApi(client)
+    api = radarr.QueueDetailsApi(client)
     queue = await radarr_api_call(api.list_queue_details)
     filtered = grep_filter(queue, grep)
     return summarize_list(filtered)
@@ -40,7 +40,7 @@ async def radarr_describe_queue_item(
     client: radarr.ApiClient = Depends(get_radarr_client),
 ) -> dict[str, Any]:
     """Get full details for a specific queue item."""
-    api = radarr.QueueApi(client)
+    api = radarr.QueueDetailsApi(client)
     items = await radarr_api_call(api.list_queue_details)
     for item in items:
         if item.id == id:

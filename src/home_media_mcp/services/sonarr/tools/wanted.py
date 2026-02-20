@@ -27,9 +27,9 @@ async def sonarr_list_missing(
 
     Returns paginated list of wanted episodes.
     """
-    api = sonarr.WantedMissingApi(client)
+    api = sonarr.MissingApi(client)
     result = await sonarr_api_call(
-        api.list_wanted_missing, page=page, page_size=page_size
+        api.get_wanted_missing, page=page, page_size=page_size
     )
     records = result.records or []
     filtered = grep_filter(records, grep)
@@ -53,7 +53,7 @@ async def sonarr_list_cutoff_unmet(
     """
     api = sonarr.CutoffApi(client)
     result = await sonarr_api_call(
-        api.list_wanted_cutoff, page=page, page_size=page_size
+        api.get_wanted_cutoff, page=page, page_size=page_size
     )
     records = result.records or []
     filtered = grep_filter(records, grep)

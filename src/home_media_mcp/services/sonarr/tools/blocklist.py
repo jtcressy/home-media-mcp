@@ -28,7 +28,7 @@ async def sonarr_list_blocklist(
     Blocklisted releases won't be downloaded again by Sonarr.
     """
     api = sonarr.BlocklistApi(client)
-    result = await sonarr_api_call(api.list_blocklist, page=page, page_size=page_size)
+    result = await sonarr_api_call(api.get_blocklist, page=page, page_size=page_size)
     records = result.records or []
     filtered = grep_filter(records, grep)
     return summarize_list(filtered)

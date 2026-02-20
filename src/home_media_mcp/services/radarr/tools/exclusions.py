@@ -25,7 +25,7 @@ async def radarr_list_exclusions(
 
     Import exclusions prevent movies from being added by import lists.
     """
-    api = radarr.ImportExclusionsApi(client)
+    api = radarr.ImportListExclusionApi(client)
     results = await radarr_api_call(api.list_exclusions)
     filtered = grep_filter(results, grep)
     return summarize_list(filtered)
@@ -45,14 +45,14 @@ async def radarr_add_exclusion(
 
     This prevents the movie from being added by import lists.
     """
-    api = radarr.ImportExclusionsApi(client)
-    resource = radarr.ImportExclusionsResource(
+    api = radarr.ImportListExclusionApi(client)
+    resource = radarr.ImportListExclusionResource(
         tmdb_id=tmdb_id,
         movie_title=movie_title,
         movie_year=movie_year,
     )
     result = await radarr_api_call(
-        api.create_exclusions, import_exclusions_resource=resource
+        api.create_exclusions, import_list_exclusion_resource=resource
     )
     return {
         "success": True,
@@ -72,6 +72,6 @@ async def radarr_remove_exclusion(
 
     This allows import lists to add the movie again.
     """
-    api = radarr.ImportExclusionsApi(client)
+    api = radarr.ImportListExclusionApi(client)
     await radarr_api_call(api.delete_exclusions, id=id)
     return {"success": True, "message": f"Exclusion {id} removed."}

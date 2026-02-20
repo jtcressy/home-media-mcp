@@ -27,9 +27,9 @@ async def radarr_list_missing(
 
     Returns paginated list of wanted movies.
     """
-    api = radarr.WantedMissingApi(client)
+    api = radarr.MissingApi(client)
     result = await radarr_api_call(
-        api.list_wanted_missing, page=page, page_size=page_size
+        api.get_wanted_missing, page=page, page_size=page_size
     )
     records = result.records or []
     filtered = grep_filter(records, grep)
@@ -52,7 +52,7 @@ async def radarr_list_cutoff_unmet(
     """
     api = radarr.CutoffApi(client)
     result = await radarr_api_call(
-        api.list_wanted_cutoff, page=page, page_size=page_size
+        api.get_wanted_cutoff, page=page, page_size=page_size
     )
     records = result.records or []
     filtered = grep_filter(records, grep)

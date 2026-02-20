@@ -27,6 +27,6 @@ async def radarr_list_credits(
     Returns actors, directors, writers, and other crew members.
     """
     api = radarr.CreditApi(client)
-    results = await radarr_api_call(api.list_credit, movie_id=movie_id)
+    results = await radarr_api_call(api.get_credit, movie_id=movie_id)
     filtered = grep_filter(results, grep)
     return summarize_list(filtered)
