@@ -304,6 +304,28 @@ async def test_sonarr_preview_rename_uses_rename_episode_api(patched_mcp):
 
 
 # ---------------------------------------------------------------------------
+# Lookup tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_lookup_series_uses_series_lookup_api(patched_mcp):
+    """Must use SeriesLookupApi.list_series_lookup (not SeriesApi.list_series_lookup)."""
+    mock_api = MagicMock()
+    mock_api.list_series_lookup.return_value = [_mock_series(id=99, title="Severance")]
+    with patch("sonarr.SeriesLookupApi", return_value=mock_api) as mock_cls:
+        with patch("sonarr.SeriesApi") as mock_wrong_cls:
+            async with Client(patched_mcp) as client:
+                result = await client.call_tool(
+                    "sonarr_lookup_series", {"term": "Severance"}
+                )
+    mock_cls.assert_called_once()
+    mock_api.list_series_lookup.assert_called_once_with(term="Severance")
+    mock_wrong_cls.assert_not_called()
+    assert result.data["summary"]["total"] == 1
+
+
+# ---------------------------------------------------------------------------
 # Reference tools
 # ---------------------------------------------------------------------------
 

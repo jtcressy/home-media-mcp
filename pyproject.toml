@@ -18,6 +18,7 @@ home-media-mcp = "home_media_mcp.main:run"
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "pytest-cov>=7.0.0",
     "pytest-mock>=3.14",
 ]
 

@@ -73,7 +73,7 @@ async def sonarr_lookup_series(
     Searches TheTVDB and returns matching series that can be added.
     Use the tvdbId from results when calling add_series.
     """
-    api = sonarr.SeriesApi(client)
+    api = sonarr.SeriesLookupApi(client)
     results = await sonarr_api_call(api.list_series_lookup, term=term)
     return summarize_list(results)
 

@@ -27,7 +27,7 @@ async def radarr_list_movie_files(
     Returns summary info about each file. Use describe_movie_file for full details.
     """
     api = radarr.MovieFileApi(client)
-    files = await radarr_api_call(api.list_movie_file, movie_id=movie_id)
+    files = await radarr_api_call(api.list_movie_file, movie_id=[movie_id])
     filtered = grep_filter(files, grep)
     return summarize_list(filtered)
 

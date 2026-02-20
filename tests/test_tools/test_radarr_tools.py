@@ -355,6 +355,52 @@ async def test_radarr_list_exclusions_uses_import_list_exclusion_api(patched_mcp
 
 
 # ---------------------------------------------------------------------------
+# Movie files tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_list_movie_files_passes_list(patched_mcp):
+    """movie_id must be passed as a list to list_movie_file."""
+    mock_api = MagicMock()
+    mock_api.list_movie_file.return_value = [
+        make_mock_model(id=526, movieId=142, size=55000000)
+    ]
+    with patch("radarr.MovieFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_list_movie_files", {"movie_id": 142}
+            )
+    mock_api.list_movie_file.assert_called_once_with(movie_id=[142])
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_list_credits_handles_none_result(patched_mcp):
+    """get_credit may return None — must not raise."""
+    mock_api = MagicMock()
+    mock_api.get_credit.return_value = None
+    with patch("radarr.CreditApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_list_credits", {"movie_id": 999})
+    assert result.data["summary"]["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_radarr_list_credits_returns_results(patched_mcp):
+    """When get_credit returns data, it should be summarized normally."""
+    mock_api = MagicMock()
+    mock_api.get_credit.return_value = [
+        make_mock_model(id=1, name="Keanu Reeves", character="Neo", type="cast")
+    ]
+    with patch("radarr.CreditApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_list_credits", {"movie_id": 142})
+    mock_api.get_credit.assert_called_once_with(movie_id=142)
+    assert result.data["summary"]["total"] == 1
+
+
+# ---------------------------------------------------------------------------
 # Reference tools
 # ---------------------------------------------------------------------------
 

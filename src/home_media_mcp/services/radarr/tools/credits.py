@@ -28,5 +28,5 @@ async def radarr_list_credits(
     """
     api = radarr.CreditApi(client)
     results = await radarr_api_call(api.get_credit, movie_id=movie_id)
-    filtered = grep_filter(results, grep)
+    filtered = grep_filter(results or [], grep)
     return summarize_list(filtered)
