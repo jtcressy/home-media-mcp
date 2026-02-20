@@ -71,7 +71,7 @@ async def sonarr_monitor_episodes(
     resource = sonarr.EpisodesMonitoredResource(
         episode_ids=episode_ids, monitored=monitored
     )
-    await sonarr_api_call(api.put_episode_monitor, episodes_monitor_resource=resource)
+    await sonarr_api_call(api.put_episode_monitor, episodes_monitored_resource=resource)
     return {
         "success": True,
         "message": f"{'Monitored' if monitored else 'Unmonitored'} {len(episode_ids)} episode(s).",

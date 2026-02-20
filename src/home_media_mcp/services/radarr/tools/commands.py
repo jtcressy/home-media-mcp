@@ -35,14 +35,29 @@ async def radarr_run_command(
     Triggers background tasks like movie refresh, RSS sync, search, etc.
     Returns the command status (use describe_command to check progress).
     """
-    api = radarr.CommandApi(client)
-
     body: dict[str, Any] = {"name": name}
     if movie_ids is not None:
         body["movieIds"] = movie_ids
 
-    resource = radarr.CommandResource(**body)
-    result = await radarr_api_call(api.create_command, command_resource=resource)
+    def _post_command():
+        _param = client.param_serialize(
+            method="POST",
+            resource_path="/api/v3/command",
+            header_params={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            body=body,
+            auth_settings=["apikey", "X-Api-Key"],
+        )
+        response_data = client.call_api(*_param)
+        response_data.read()
+        return client.response_deserialize(
+            response_data=response_data,
+            response_types_map={"2XX": "CommandResource"},
+        ).data
+
+    result = await radarr_api_call(_post_command)
     return full_detail(result)
 
 

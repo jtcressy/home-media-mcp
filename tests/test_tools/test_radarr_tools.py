@@ -860,34 +860,76 @@ async def test_radarr_describe_command_not_found(patched_mcp):
 
 
 @pytest.mark.asyncio
-async def test_radarr_run_command_basic(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.create_command.return_value = make_mock_model(
-        id=10, name="RssSync", status="queued"
+async def test_radarr_run_command_basic(patched_mcp, mock_radarr_client):
+    from unittest.mock import AsyncMock
+
+    mock_command = MagicMock()
+    mock_command.id = 10
+    mock_command.name = "RssSync"
+    mock_command.status = "queued"
+    mock_command.to_dict.return_value = {
+        "id": 10,
+        "name": "RssSync",
+        "status": "queued",
+    }
+
+    mock_deser_result = MagicMock()
+    mock_deser_result.data = mock_command
+
+    mock_response_data = MagicMock()
+    mock_response_data.read.return_value = None
+
+    mock_radarr_client.__aenter__ = AsyncMock(return_value=mock_radarr_client)
+    mock_radarr_client.__aexit__ = AsyncMock(return_value=None)
+    mock_radarr_client.param_serialize = MagicMock(
+        return_value=("POST", "/api/v3/command", {}, {}, {}, None, None, None, None)
     )
+    mock_radarr_client.call_api = MagicMock(return_value=mock_response_data)
+    mock_radarr_client.response_deserialize = MagicMock(return_value=mock_deser_result)
 
-    with patch("radarr.CommandApi", return_value=mock_api):
-        async with Client(patched_mcp) as client:
-            result = await client.call_tool("radarr_run_command", {"name": "RssSync"})
+    async with Client(patched_mcp) as client:
+        result = await client.call_tool("radarr_run_command", {"name": "RssSync"})
 
-    mock_api.create_command.assert_called_once()
+    mock_radarr_client.param_serialize.assert_called_once()
     assert result.data["id"] == 10
 
 
 @pytest.mark.asyncio
-async def test_radarr_run_command_with_movie_ids(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.create_command.return_value = make_mock_model(
-        id=10, name="MoviesSearch", status="queued"
+async def test_radarr_run_command_with_movie_ids(patched_mcp, mock_radarr_client):
+    from unittest.mock import AsyncMock
+
+    mock_command = MagicMock()
+    mock_command.id = 10
+    mock_command.name = "MoviesSearch"
+    mock_command.status = "queued"
+    mock_command.to_dict.return_value = {
+        "id": 10,
+        "name": "MoviesSearch",
+        "status": "queued",
+    }
+
+    mock_deser_result = MagicMock()
+    mock_deser_result.data = mock_command
+
+    mock_response_data = MagicMock()
+    mock_response_data.read.return_value = None
+
+    mock_radarr_client.__aenter__ = AsyncMock(return_value=mock_radarr_client)
+    mock_radarr_client.__aexit__ = AsyncMock(return_value=None)
+    mock_radarr_client.param_serialize = MagicMock(
+        return_value=("POST", "/api/v3/command", {}, {}, {}, None, None, None, None)
     )
+    mock_radarr_client.call_api = MagicMock(return_value=mock_response_data)
+    mock_radarr_client.response_deserialize = MagicMock(return_value=mock_deser_result)
 
-    with patch("radarr.CommandApi", return_value=mock_api):
-        async with Client(patched_mcp) as client:
-            result = await client.call_tool(
-                "radarr_run_command", {"name": "MoviesSearch", "movie_ids": [1, 2]}
-            )
+    async with Client(patched_mcp) as client:
+        result = await client.call_tool(
+            "radarr_run_command", {"name": "MoviesSearch", "movie_ids": [1, 2]}
+        )
 
-    mock_api.create_command.assert_called_once()
+    mock_radarr_client.param_serialize.assert_called_once()
+    call_body = mock_radarr_client.param_serialize.call_args[1]["body"]
+    assert call_body["movieIds"] == [1, 2]
 
 
 # ---------------------------------------------------------------------------

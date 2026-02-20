@@ -34,8 +34,6 @@ async def sonarr_run_command(
     Triggers background tasks like series refresh, RSS sync, episode search, etc.
     Returns the command status (use describe_command to check progress).
     """
-    api = sonarr.CommandApi(client)
-
     body: dict[str, Any] = {"name": name}
     if series_id is not None:
         body["seriesId"] = series_id
@@ -44,8 +42,25 @@ async def sonarr_run_command(
     if episode_ids is not None:
         body["episodeIds"] = episode_ids
 
-    resource = sonarr.CommandResource(**body)
-    result = await sonarr_api_call(api.create_command, command_resource=resource)
+    def _post_command():
+        _param = client.param_serialize(
+            method="POST",
+            resource_path="/api/v3/command",
+            header_params={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            body=body,
+            auth_settings=["apikey", "X-Api-Key"],
+        )
+        response_data = client.call_api(*_param)
+        response_data.read()
+        return client.response_deserialize(
+            response_data=response_data,
+            response_types_map={"2XX": "CommandResource"},
+        ).data
+
+    result = await sonarr_api_call(_post_command)
     return full_detail(result)
 
 
