@@ -25,7 +25,19 @@ async def sonarr_list_queue(
     api = sonarr.QueueDetailsApi(client)
     queue = await sonarr_api_call(api.list_queue_details)
     filtered = grep_filter(queue, grep)
-    return summarize_list(filtered)
+    return summarize_list(
+        filtered,
+        preserve_fields=[
+            "title",
+            "status",
+            "downloadId",
+            "downloadClient",
+            "outputPath",
+            "indexer",
+            "timeleft",
+            "errorMessage",
+        ],
+    )
 
 
 @mcp.tool(
@@ -55,10 +67,10 @@ async def sonarr_grab_queue_item(
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
     """Force grab a pending queue item."""
-    api = sonarr.QueueApi(client)
+    api = sonarr.QueueActionApi(client)
     await sonarr_api_call(
-        api.create_queue_grab_selected,
-        queue_grab_bulk_resource=sonarr.QueueBulkResource(ids=[id]),
+        api.create_queue_grab_bulk,
+        queue_bulk_resource=sonarr.QueueBulkResource(ids=[id]),
     )
     return {"success": True, "message": f"Queue item {id} grabbed."}
 
@@ -67,26 +79,26 @@ async def sonarr_grab_queue_item(
     tags={"write"},
     annotations={"destructiveHint": True, "readOnlyHint": False},
 )
-async def sonarr_remove_queue_item(
-    id: Annotated[int, "The queue item ID to remove"],
+async def sonarr_remove_queue_items(
+    ids: Annotated[list[int], "List of queue item IDs to remove"],
     blocklist: Annotated[
-        bool, "Add the release to the blocklist to prevent re-downloading"
+        bool, "Add the releases to the blocklist to prevent re-downloading"
     ] = False,
     remove_from_client: Annotated[
-        bool, "Also remove the download from the download client"
+        bool, "Also remove the downloads from the download client"
     ] = True,
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
-    """Remove an item from the download queue."""
+    """Remove multiple items from the download queue in a single request."""
     api = sonarr.QueueApi(client)
     await sonarr_api_call(
-        api.delete_queue,
-        id=id,
+        api.delete_queue_bulk,
         blocklist=blocklist,
         remove_from_client=remove_from_client,
+        queue_bulk_resource=sonarr.QueueBulkResource(ids=ids),
     )
     return {
         "success": True,
-        "message": f"Queue item {id} removed"
+        "message": f"Removed {len(ids)} queue items"
         + (" and blocklisted" if blocklist else ""),
     }

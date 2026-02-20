@@ -1080,43 +1080,86 @@ async def test_radarr_describe_queue_item_not_found(patched_mcp):
 @pytest.mark.asyncio
 async def test_radarr_grab_queue_item_happy_path(patched_mcp):
     mock_api = MagicMock()
-    mock_api.create_queue_grab_selected.return_value = None
+    mock_api.create_queue_grab_bulk.return_value = None
 
-    with patch("radarr.QueueApi", return_value=mock_api):
+    with patch("radarr.QueueActionApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
             result = await client.call_tool("radarr_grab_queue_item", {"id": 88})
 
-    mock_api.create_queue_grab_selected.assert_called_once()
+    mock_api.create_queue_grab_bulk.assert_called_once()
     assert result.data.get("success") is True
 
 
 @pytest.mark.asyncio
-async def test_radarr_remove_queue_item_happy_path(patched_mcp):
+async def test_radarr_remove_queue_items_happy_path(patched_mcp):
     mock_api = MagicMock()
-    mock_api.delete_queue.return_value = None
-
-    with patch("radarr.QueueApi", return_value=mock_api):
-        async with Client(patched_mcp) as client:
-            result = await client.call_tool("radarr_remove_queue_item", {"id": 88})
-
-    mock_api.delete_queue.assert_called_once_with(
-        id=88, blocklist=False, remove_from_client=True
-    )
-    assert result.data.get("success") is True
-
-
-@pytest.mark.asyncio
-async def test_radarr_remove_queue_item_with_blocklist(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.delete_queue.return_value = None
+    mock_api.delete_queue_bulk.return_value = None
 
     with patch("radarr.QueueApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
             result = await client.call_tool(
-                "radarr_remove_queue_item", {"id": 88, "blocklist": True}
+                "radarr_remove_queue_items", {"ids": [1, 2, 3]}
             )
 
-    assert "blocklisted" in result.data.get("message", "").lower()
+    mock_api.delete_queue_bulk.assert_called_once()
+    call_kwargs = mock_api.delete_queue_bulk.call_args.kwargs
+    assert call_kwargs["blocklist"] is False
+    assert call_kwargs["remove_from_client"] is True
+    assert call_kwargs["queue_bulk_resource"].ids == [1, 2, 3]
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_radarr_remove_queue_items_with_blocklist(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_queue_bulk.return_value = None
+
+    with patch("radarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_remove_queue_items", {"ids": [1, 2], "blocklist": True}
+            )
+
+    mock_api.delete_queue_bulk.assert_called_once()
+    call_kwargs = mock_api.delete_queue_bulk.call_args.kwargs
+    assert call_kwargs["blocklist"] is True
+    assert "blocklisted" in result.data["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_radarr_list_queue_preserve_fields(patched_mcp):
+    item = MagicMock()
+    item.id = 1
+    item.to_dict.return_value = {
+        "id": 1,
+        "title": "Some Movie",
+        "status": "downloading",
+        "downloadId": None,
+        "downloadClient": None,
+        "outputPath": None,
+        "indexer": None,
+        "timeleft": None,
+        "errorMessage": None,
+    }
+
+    mock_api = MagicMock()
+    mock_api.list_queue_details.return_value = [item]
+
+    with patch("radarr.QueueDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_list_queue", {})
+
+    for field in [
+        "title",
+        "status",
+        "downloadId",
+        "downloadClient",
+        "outputPath",
+        "indexer",
+        "timeleft",
+        "errorMessage",
+    ]:
+        assert field in result.data["items"][0], f"Field {field} should be present"
 
 
 # ---------------------------------------------------------------------------

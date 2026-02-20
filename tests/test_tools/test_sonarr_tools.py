@@ -994,43 +994,85 @@ async def test_sonarr_describe_queue_item_not_found(patched_mcp):
 @pytest.mark.asyncio
 async def test_sonarr_grab_queue_item_happy_path(patched_mcp):
     mock_api = MagicMock()
-    mock_api.create_queue_grab_selected.return_value = None
+    mock_api.create_queue_grab_bulk.return_value = None
 
-    with patch("sonarr.QueueApi", return_value=mock_api):
+    with patch("sonarr.QueueActionApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
             result = await client.call_tool("sonarr_grab_queue_item", {"id": 88})
 
-    mock_api.create_queue_grab_selected.assert_called_once()
+    mock_api.create_queue_grab_bulk.assert_called_once()
     assert result.data["success"] is True
 
 
 @pytest.mark.asyncio
-async def test_sonarr_remove_queue_item_happy_path(patched_mcp):
+async def test_sonarr_remove_queue_items_happy_path(patched_mcp):
     mock_api = MagicMock()
-    mock_api.delete_queue.return_value = None
-
-    with patch("sonarr.QueueApi", return_value=mock_api):
-        async with Client(patched_mcp) as client:
-            result = await client.call_tool("sonarr_remove_queue_item", {"id": 88})
-
-    mock_api.delete_queue.assert_called_once_with(
-        id=88, blocklist=False, remove_from_client=True
-    )
-    assert result.data["success"] is True
-
-
-@pytest.mark.asyncio
-async def test_sonarr_remove_queue_item_with_blocklist(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.delete_queue.return_value = None
+    mock_api.delete_queue_bulk.return_value = None
 
     with patch("sonarr.QueueApi", return_value=mock_api):
         async with Client(patched_mcp) as client:
             result = await client.call_tool(
-                "sonarr_remove_queue_item", {"id": 88, "blocklist": True}
+                "sonarr_remove_queue_items", {"ids": [1, 2, 3]}
             )
 
+    mock_api.delete_queue_bulk.assert_called_once()
+    call_kwargs = mock_api.delete_queue_bulk.call_args.kwargs
+    assert call_kwargs["blocklist"] is False
+    assert call_kwargs["remove_from_client"] is True
+    assert call_kwargs["queue_bulk_resource"].ids == [1, 2, 3]
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_items_with_blocklist(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_queue_bulk.return_value = None
+
+    with patch("sonarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_remove_queue_items", {"ids": [1, 2, 3], "blocklist": True}
+            )
+
+    call_kwargs = mock_api.delete_queue_bulk.call_args.kwargs
+    assert call_kwargs["blocklist"] is True
     assert "blocklisted" in result.data["message"]
+
+
+@pytest.mark.asyncio
+async def test_sonarr_list_queue_preserve_fields(patched_mcp):
+    item = MagicMock()
+    item.id = 1
+    item.to_dict.return_value = {
+        "id": 1,
+        "title": "Some Show",
+        "status": "downloading",
+        "downloadId": None,
+        "downloadClient": None,
+        "outputPath": None,
+        "indexer": None,
+        "timeleft": None,
+        "errorMessage": None,
+    }
+
+    mock_api = MagicMock()
+    mock_api.list_queue_details.return_value = [item]
+
+    with patch("sonarr.QueueDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_list_queue", {})
+
+    for field in [
+        "title",
+        "status",
+        "downloadId",
+        "downloadClient",
+        "outputPath",
+        "indexer",
+        "timeleft",
+        "errorMessage",
+    ]:
+        assert field in result.data["items"][0], f"Field {field} should be present"
 
 
 # ---------------------------------------------------------------------------
