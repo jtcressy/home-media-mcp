@@ -55,4 +55,6 @@ async def sonarr_download_release(
     api = sonarr.ReleaseApi(client)
     resource = sonarr.ReleaseResource(guid=guid, indexer_id=indexer_id)
     result = await sonarr_api_call(api.create_release, release_resource=resource)
+    if result is None:
+        return {"success": True, "message": "Release added to download queue."}
     return full_detail(result)

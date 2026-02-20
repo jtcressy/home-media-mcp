@@ -52,4 +52,6 @@ async def radarr_download_release(
     api = radarr.ReleaseApi(client)
     resource = radarr.ReleaseResource(guid=guid, indexer_id=indexer_id)
     result = await radarr_api_call(api.create_release, release_resource=resource)
+    if result is None:
+        return {"success": True, "message": "Release added to download queue."}
     return full_detail(result)
