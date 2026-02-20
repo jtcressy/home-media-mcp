@@ -55,7 +55,7 @@ async def sonarr_describe_series(
     api = sonarr.SeriesApi(client)
     try:
         result = await sonarr_api_call(api.get_series_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Series with ID {id} not found."}
     return full_detail(result)
 
@@ -167,7 +167,7 @@ async def sonarr_update_series(
 
     try:
         series = await sonarr_api_call(api.get_series_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Series with ID {id} not found."}
 
     if monitored is not None:
@@ -213,7 +213,7 @@ async def sonarr_delete_series(
     api = sonarr.SeriesApi(client)
     try:
         await sonarr_api_call(api.delete_series, id=id, delete_files=delete_files)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Series with ID {id} not found."}
     return {
         "success": True,

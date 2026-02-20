@@ -372,3 +372,673 @@ async def test_sonarr_list_tags(patched_mcp):
 
     mock_api.list_tag.assert_called_once()
     assert result.data["summary"]["total"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Series write tools
+# ---------------------------------------------------------------------------
+
+from sonarr.exceptions import NotFoundException as _SonarrNotFoundException  # noqa: E402
+
+
+def _make_qp_mock(id: int = 1, name: str = "Any") -> MagicMock:
+    """Create a quality profile mock with real .id and .name attributes."""
+    m = make_mock_model(id=id, name=name)
+    m.id = id
+    m.name = name
+    return m
+
+
+def _make_rf_mock(id: int = 1, path: str = "/tv") -> MagicMock:
+    """Create a root folder mock with real .id and .path attributes."""
+    m = make_mock_model(id=id, path=path)
+    m.id = id
+    m.path = path
+    return m
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_series_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_series_by_id.side_effect = _SonarrNotFoundException()
+
+    with patch("sonarr.SeriesApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_series", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_add_series_happy_path(patched_mcp):
+    qp_mock_api = MagicMock()
+    qp_mock_api.list_quality_profile.return_value = [_make_qp_mock(id=1, name="Any")]
+
+    rf_mock_api = MagicMock()
+    rf_mock_api.list_root_folder.return_value = [_make_rf_mock(id=1, path="/tv")]
+
+    series_data_mock = MagicMock()
+    series_mock_api = MagicMock()
+    series_mock_api.list_series_lookup.return_value = [series_data_mock]
+    series_mock_api.create_series.return_value = make_mock_model(id=10, title="Test")
+
+    with patch("sonarr.QualityProfileApi", return_value=qp_mock_api):
+        with patch("sonarr.RootFolderApi", return_value=rf_mock_api):
+            with patch("sonarr.SeriesApi", return_value=series_mock_api):
+                async with Client(patched_mcp) as client:
+                    result = await client.call_tool(
+                        "sonarr_add_series",
+                        {"tvdb_id": 12345, "quality_profile": 1, "root_folder": 1},
+                    )
+
+    series_mock_api.create_series.assert_called_once()
+    assert result.data["id"] == 10
+
+
+@pytest.mark.asyncio
+async def test_sonarr_add_series_tvdb_not_found(patched_mcp):
+    qp_mock_api = MagicMock()
+    qp_mock_api.list_quality_profile.return_value = [_make_qp_mock(id=1, name="Any")]
+
+    rf_mock_api = MagicMock()
+    rf_mock_api.list_root_folder.return_value = [_make_rf_mock(id=1, path="/tv")]
+
+    series_mock_api = MagicMock()
+    series_mock_api.list_series_lookup.return_value = []
+
+    with patch("sonarr.QualityProfileApi", return_value=qp_mock_api):
+        with patch("sonarr.RootFolderApi", return_value=rf_mock_api):
+            with patch("sonarr.SeriesApi", return_value=series_mock_api):
+                async with Client(patched_mcp) as client:
+                    result = await client.call_tool(
+                        "sonarr_add_series",
+                        {"tvdb_id": 99999, "quality_profile": 1, "root_folder": 1},
+                    )
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_update_series_happy_path(patched_mcp):
+    existing_series = MagicMock()
+    updated_series = make_mock_model(id=5)
+
+    mock_api = MagicMock()
+    mock_api.get_series_by_id.return_value = existing_series
+    mock_api.update_series.return_value = updated_series
+
+    with patch("sonarr.SeriesApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_update_series", {"id": 5, "monitored": False}
+            )
+
+    mock_api.update_series.assert_called_once()
+    assert result.data["id"] == 5
+
+
+@pytest.mark.asyncio
+async def test_sonarr_update_series_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_series_by_id.side_effect = _SonarrNotFoundException()
+
+    with patch("sonarr.SeriesApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_update_series", {"id": 999, "monitored": False}
+            )
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_delete_series_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_series.return_value = None
+
+    with patch("sonarr.SeriesApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_delete_series", {"id": 7})
+
+    mock_api.delete_series.assert_called_once_with(id=7, delete_files=False)
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_sonarr_delete_series_with_files(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_series.return_value = None
+
+    with patch("sonarr.SeriesApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_delete_series", {"id": 7, "delete_files": True}
+            )
+
+    mock_api.delete_series.assert_called_once_with(id=7, delete_files=True)
+    assert result.data["success"] is True
+    assert "files also deleted" in result.data["message"]
+
+
+@pytest.mark.asyncio
+async def test_sonarr_delete_series_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_series.side_effect = _SonarrNotFoundException()
+
+    with patch("sonarr.SeriesApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_delete_series", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+# ---------------------------------------------------------------------------
+# Episode write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_episode_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_episode_by_id.return_value = make_mock_model(id=20, title="Ep1")
+
+    with patch("sonarr.EpisodeApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_episode", {"id": 20})
+
+    assert result.data["id"] == 20
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_episode_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_episode_by_id.side_effect = _SonarrNotFoundException()
+
+    with patch("sonarr.EpisodeApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_episode", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_monitor_episodes_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.put_episode_monitor.return_value = None
+
+    with patch("sonarr.EpisodeApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_monitor_episodes",
+                {"episode_ids": [1, 2, 3], "monitored": True},
+            )
+
+    mock_api.put_episode_monitor.assert_called_once()
+    assert result.data["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Episode file tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_list_episode_files_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_episode_file.return_value = [make_mock_model(id=100, seriesId=1)]
+
+    with patch("sonarr.EpisodeFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_list_episode_files", {"series_id": 1}
+            )
+
+    mock_api.list_episode_file.assert_called_once_with(series_id=1)
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_episode_file_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_episode_file_by_id.return_value = make_mock_model(id=100)
+
+    with patch("sonarr.EpisodeFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_episode_file", {"id": 100})
+
+    assert result.data["id"] == 100
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_episode_file_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_episode_file_by_id.side_effect = _SonarrNotFoundException()
+
+    with patch("sonarr.EpisodeFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_episode_file", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_delete_episode_file_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_episode_file.return_value = None
+
+    with patch("sonarr.EpisodeFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_delete_episode_file", {"id": 55})
+
+    mock_api.delete_episode_file.assert_called_once_with(id=55)
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_sonarr_delete_episode_file_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_episode_file.side_effect = _SonarrNotFoundException()
+
+    with patch("sonarr.EpisodeFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_delete_episode_file", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+# ---------------------------------------------------------------------------
+# Blocklist write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_blocklist_item_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_blocklist.return_value = None
+
+    with patch("sonarr.BlocklistApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_remove_blocklist_item", {"id": 42})
+
+    mock_api.delete_blocklist.assert_called_once_with(id=42)
+    assert result.data["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Calendar tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_get_calendar_no_dates(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_calendar.return_value = [make_mock_model(id=1, title="S01E01")]
+
+    with patch("sonarr.CalendarApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_get_calendar", {})
+
+    mock_api.list_calendar.assert_called_once_with()
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_get_calendar_with_dates(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_calendar.return_value = [make_mock_model(id=1, title="S01E01")]
+
+    with patch("sonarr.CalendarApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_get_calendar", {"start": "2024-01-01", "end": "2024-01-31"}
+            )
+
+    mock_api.list_calendar.assert_called_once_with(start="2024-01-01", end="2024-01-31")
+
+
+# ---------------------------------------------------------------------------
+# Commands tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_list_commands_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_command.return_value = [
+        make_mock_model(id=1, name="RssSync", status="completed")
+    ]
+
+    with patch("sonarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_list_commands", {})
+
+    mock_api.list_command.assert_called_once()
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_command_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_command_by_id.return_value = make_mock_model(
+        id=5, name="RefreshSeries"
+    )
+
+    with patch("sonarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_command", {"id": 5})
+
+    mock_api.get_command_by_id.assert_called_once_with(id=5)
+    assert result.data["id"] == 5
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_command_not_found(patched_mcp):
+    from sonarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_command_by_id.side_effect = NotFoundException()
+
+    with patch("sonarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_command", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_run_command_basic(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_command.return_value = make_mock_model(
+        id=10, name="RssSync", status="queued"
+    )
+
+    with patch("sonarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_run_command", {"name": "RssSync"})
+
+    mock_api.create_command.assert_called_once()
+    assert result.data["id"] == 10
+
+
+@pytest.mark.asyncio
+async def test_sonarr_run_command_with_series_and_episodes(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_command.return_value = make_mock_model(
+        id=10, name="EpisodeSearch", status="queued"
+    )
+
+    with patch("sonarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_run_command",
+                {"name": "EpisodeSearch", "series_id": 1, "episode_ids": [10, 11]},
+            )
+
+    mock_api.create_command.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Episodes read tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_list_episodes_with_season_number(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_episode.return_value = [make_mock_model(id=10)]
+
+    with patch("sonarr.EpisodeApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_list_episodes", {"series_id": 1, "season_number": 2}
+            )
+
+    mock_api.list_episode.assert_called_once_with(series_id=1, season_number=2)
+
+
+# ---------------------------------------------------------------------------
+# Manual import tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_preview_manual_import_basic(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_manual_import.return_value = [
+        make_mock_model(id=1, path="/dl/file.mkv")
+    ]
+
+    with patch("sonarr.ManualImportApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_preview_manual_import", {"folder": "/dl"}
+            )
+
+    mock_api.list_manual_import.assert_called_once_with(folder="/dl")
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_preview_manual_import_with_series_id(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_manual_import.return_value = [
+        make_mock_model(id=1, path="/dl/file.mkv")
+    ]
+
+    with patch("sonarr.ManualImportApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_preview_manual_import", {"folder": "/dl", "series_id": 3}
+            )
+
+    mock_api.list_manual_import.assert_called_once_with(folder="/dl", series_id=3)
+
+
+@pytest.mark.asyncio
+async def test_sonarr_execute_manual_import_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_manual_import.return_value = None
+
+    with patch("sonarr.ManualImportApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_execute_manual_import",
+                {"files": [{"path": "/dl/ep.mkv", "seriesId": 1, "episodeIds": [10]}]},
+            )
+
+    mock_api.create_manual_import.assert_called_once()
+    assert result.data["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Search / download tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_search_releases_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_release.return_value = [
+        make_mock_model(id=1, title="Release.X264", indexerId=2)
+    ]
+
+    with patch("sonarr.ReleaseApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_search_releases", {"episode_id": 10}
+            )
+
+    mock_api.list_release.assert_called_once_with(episode_id=10)
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_download_release_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_release.return_value = make_mock_model(id=1, guid="abc-123")
+
+    with patch("sonarr.ReleaseApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_download_release", {"guid": "abc-123", "indexer_id": 2}
+            )
+
+    mock_api.create_release.assert_called_once()
+    assert result.data["guid"] == "abc-123"
+
+
+# ---------------------------------------------------------------------------
+# Queue read tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_queue_item_found(patched_mcp):
+    item = MagicMock()
+    item.id = 77
+    item.to_dict.return_value = {"id": 77, "title": "Some Episode"}
+
+    mock_api = MagicMock()
+    mock_api.list_queue_details.return_value = [item]
+
+    with patch("sonarr.QueueDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_queue_item", {"id": 77})
+
+    assert result.data["id"] == 77
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_queue_item_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_queue_details.return_value = []
+
+    with patch("sonarr.QueueDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_queue_item", {"id": 99})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_grab_queue_item_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_queue_grab_selected.return_value = None
+
+    with patch("sonarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_grab_queue_item", {"id": 88})
+
+    mock_api.create_queue_grab_selected.assert_called_once()
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_item_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_queue.return_value = None
+
+    with patch("sonarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_remove_queue_item", {"id": 88})
+
+    mock_api.delete_queue.assert_called_once_with(
+        id=88, blocklist=False, remove_from_client=True
+    )
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_item_with_blocklist(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_queue.return_value = None
+
+    with patch("sonarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_remove_queue_item", {"id": 88, "blocklist": True}
+            )
+
+    assert "blocklisted" in result.data["message"]
+
+
+# ---------------------------------------------------------------------------
+# Reference describe tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_quality_profile_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_quality_profile_by_id.return_value = make_mock_model(id=1, name="Any")
+
+    with patch("sonarr.QualityProfileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_describe_quality_profile", {"id": 1}
+            )
+
+    mock_api.get_quality_profile_by_id.assert_called_once_with(id=1)
+    assert result.data["id"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_quality_profile_not_found(patched_mcp):
+    from sonarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_quality_profile_by_id.side_effect = NotFoundException()
+
+    with patch("sonarr.QualityProfileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_describe_quality_profile", {"id": 999}
+            )
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_tag_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_tag_detail_by_id.return_value = make_mock_model(id=3, label="hd")
+
+    with patch("sonarr.TagDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_tag", {"id": 3})
+
+    mock_api.get_tag_detail_by_id.assert_called_once_with(id=3)
+    assert result.data["id"] == 3
+
+
+@pytest.mark.asyncio
+async def test_sonarr_describe_tag_not_found(patched_mcp):
+    from sonarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_tag_detail_by_id.side_effect = NotFoundException()
+
+    with patch("sonarr.TagDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("sonarr_describe_tag", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+# ---------------------------------------------------------------------------
+# Rename with season_number
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sonarr_preview_rename_with_season_number(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_rename.return_value = [make_mock_model(seriesId=1)]
+
+    with patch("sonarr.RenameEpisodeApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_preview_rename", {"series_id": 1, "season_number": 2}
+            )
+
+    mock_api.list_rename.assert_called_once_with(series_id=1, season_number=2)

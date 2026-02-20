@@ -71,6 +71,6 @@ async def radarr_describe_command(
     api = radarr.CommandApi(client)
     try:
         result = await radarr_api_call(api.get_command_by_id, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Command with ID {id} not found."}
     return full_detail(result)

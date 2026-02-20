@@ -80,6 +80,6 @@ async def sonarr_describe_command(
     api = sonarr.CommandApi(client)
     try:
         result = await sonarr_api_call(api.get_command_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Command with ID {id} not found."}
     return full_detail(result)

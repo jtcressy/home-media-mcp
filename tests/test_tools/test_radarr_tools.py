@@ -447,3 +447,727 @@ async def test_radarr_list_tags(patched_mcp):
 
     mock_api.list_tag.assert_called_once()
     assert result.data["summary"]["total"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Movie write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_movie_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_movie_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_movie", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_lookup_movie_by_term(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_movie_lookup.return_value = [
+        make_mock_model(id=1, title="The Matrix")
+    ]
+
+    with patch("radarr.MovieLookupApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_lookup_movie", {"term": "Matrix"})
+
+    mock_api.list_movie_lookup.assert_called_once_with(term="Matrix")
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_lookup_movie_by_tmdb_id(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_movie_lookup_tmdb.return_value = [
+        make_mock_model(id=1, title="The Matrix")
+    ]
+
+    with patch("radarr.MovieLookupApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_lookup_movie", {"tmdb_id": 603})
+
+    mock_api.list_movie_lookup_tmdb.assert_called_once_with(tmdb_id=603)
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_lookup_movie_invalid_params(patched_mcp):
+    async with Client(patched_mcp) as client:
+        result = await client.call_tool("radarr_lookup_movie", {})
+
+    assert result.data["error"] == "invalid_params"
+
+
+@pytest.mark.asyncio
+async def test_radarr_add_movie_happy_path(patched_mcp):
+    qp = MagicMock()
+    qp.id = 8
+    qp.name = "SQP-2"
+    mock_qp_api = MagicMock()
+    mock_qp_api.list_quality_profile.return_value = [qp]
+
+    rf = MagicMock()
+    rf.id = 2
+    rf.path = "/media/movies"
+    rf.to_dict.return_value = {"id": 2, "path": "/media/movies"}
+    mock_rf_api = MagicMock()
+    mock_rf_api.list_root_folder.return_value = [rf]
+
+    mock_lookup_api = MagicMock()
+    mock_lookup_api.list_movie_lookup_tmdb.return_value = [MagicMock()]
+
+    mock_movie_api = MagicMock()
+    mock_movie_api.create_movie.return_value = make_mock_model(
+        id=42, title="The Matrix"
+    )
+
+    with patch("radarr.QualityProfileApi", return_value=mock_qp_api):
+        with patch("radarr.RootFolderApi", return_value=mock_rf_api):
+            with patch("radarr.MovieLookupApi", return_value=mock_lookup_api):
+                with patch("radarr.MovieApi", return_value=mock_movie_api):
+                    async with Client(patched_mcp) as client:
+                        result = await client.call_tool(
+                            "radarr_add_movie",
+                            {"tmdb_id": 603, "quality_profile": 8, "root_folder": 2},
+                        )
+
+    mock_movie_api.create_movie.assert_called_once()
+    assert result.data["id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_radarr_add_movie_tmdb_not_found(patched_mcp):
+    qp = MagicMock()
+    qp.id = 8
+    qp.name = "SQP-2"
+    mock_qp_api = MagicMock()
+    mock_qp_api.list_quality_profile.return_value = [qp]
+
+    rf = MagicMock()
+    rf.id = 2
+    rf.path = "/media/movies"
+    rf.to_dict.return_value = {"id": 2, "path": "/media/movies"}
+    mock_rf_api = MagicMock()
+    mock_rf_api.list_root_folder.return_value = [rf]
+
+    mock_lookup_api = MagicMock()
+    mock_lookup_api.list_movie_lookup_tmdb.return_value = []
+
+    mock_movie_api = MagicMock()
+
+    with patch("radarr.QualityProfileApi", return_value=mock_qp_api):
+        with patch("radarr.RootFolderApi", return_value=mock_rf_api):
+            with patch("radarr.MovieLookupApi", return_value=mock_lookup_api):
+                with patch("radarr.MovieApi", return_value=mock_movie_api):
+                    async with Client(patched_mcp) as client:
+                        result = await client.call_tool(
+                            "radarr_add_movie",
+                            {"tmdb_id": 603, "quality_profile": 8, "root_folder": 2},
+                        )
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_update_movie_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_movie_by_id.return_value = MagicMock()
+    mock_api.update_movie.return_value = make_mock_model(id=5, title="Updated")
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_update_movie", {"id": 5, "monitored": False}
+            )
+
+    mock_api.update_movie.assert_called_once()
+    assert result.data["id"] == 5
+
+
+@pytest.mark.asyncio
+async def test_radarr_update_movie_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_movie_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_update_movie", {"id": 999, "monitored": False}
+            )
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_delete_movie_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_movie.return_value = None
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_delete_movie", {"id": 7})
+
+    mock_api.delete_movie.assert_called_once_with(
+        id=7, delete_files=False, add_import_exclusion=False
+    )
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_radarr_delete_movie_with_files(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_movie.return_value = None
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_delete_movie", {"id": 7, "delete_files": True}
+            )
+
+    assert "files also deleted" in result.data["message"]
+
+
+@pytest.mark.asyncio
+async def test_radarr_delete_movie_with_exclusion(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_movie.return_value = None
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_delete_movie", {"id": 7, "add_import_exclusion": True}
+            )
+
+    assert "import exclusion" in result.data["message"]
+
+
+@pytest.mark.asyncio
+async def test_radarr_delete_movie_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.delete_movie.side_effect = NotFoundException()
+
+    with patch("radarr.MovieApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_delete_movie", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+# ---------------------------------------------------------------------------
+# Movie file write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_movie_file_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_movie_file_by_id.return_value = make_mock_model(id=526)
+
+    with patch("radarr.MovieFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_movie_file", {"id": 526})
+
+    assert result.data["id"] == 526
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_movie_file_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_movie_file_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.MovieFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_movie_file", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_delete_movie_file_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_movie_file.return_value = None
+
+    with patch("radarr.MovieFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_delete_movie_file", {"id": 526})
+
+    mock_api.delete_movie_file.assert_called_once_with(id=526)
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_radarr_delete_movie_file_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.delete_movie_file.side_effect = NotFoundException()
+
+    with patch("radarr.MovieFileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_delete_movie_file", {"id": 999})
+
+    assert result.data["error"] == "not_found"
+
+
+# ---------------------------------------------------------------------------
+# Exclusion write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_add_exclusion_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_exclusions.return_value = MagicMock()
+
+    with patch("radarr.ImportListExclusionApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_add_exclusion",
+                {"tmdb_id": 603, "movie_title": "The Matrix", "movie_year": 1999},
+            )
+
+    mock_api.create_exclusions.assert_called_once()
+    assert result.data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_radarr_remove_exclusion_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_exclusions.return_value = None
+
+    with patch("radarr.ImportListExclusionApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_remove_exclusion", {"id": 5})
+
+    mock_api.delete_exclusions.assert_called_once_with(id=5)
+    assert result.data["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Blocklist write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_remove_blocklist_item_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_blocklist.return_value = None
+
+    with patch("radarr.BlocklistApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_remove_blocklist_item", {"id": 42})
+
+    mock_api.delete_blocklist.assert_called_once_with(id=42)
+    assert result.data["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Calendar tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_get_calendar_no_dates(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_calendar.return_value = [
+        make_mock_model(id=1, title="Movie Premiere")
+    ]
+
+    with patch("radarr.CalendarApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_get_calendar", {})
+
+    mock_api.list_calendar.assert_called_once()
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_get_calendar_with_dates(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_calendar.return_value = [
+        make_mock_model(id=1, title="Movie Premiere")
+    ]
+
+    with patch("radarr.CalendarApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_get_calendar", {"start": "2024-02-01", "end": "2024-02-28"}
+            )
+
+    mock_api.list_calendar.assert_called_once_with(start="2024-02-01", end="2024-02-28")
+
+
+# ---------------------------------------------------------------------------
+# Commands tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_list_commands_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_command.return_value = [
+        make_mock_model(id=1, name="RssSync", status="completed")
+    ]
+
+    with patch("radarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_list_commands", {})
+
+    mock_api.list_command.assert_called_once()
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_command_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_command_by_id.return_value = make_mock_model(id=5, name="RefreshMovie")
+
+    with patch("radarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_command", {"id": 5})
+
+    mock_api.get_command_by_id.assert_called_once_with(id=5)
+    assert result.data["id"] == 5
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_command_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_command_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_command", {"id": 999})
+
+    assert isinstance(result.data, dict)
+    assert result.data.get("error") == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_run_command_basic(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_command.return_value = make_mock_model(
+        id=10, name="RssSync", status="queued"
+    )
+
+    with patch("radarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_run_command", {"name": "RssSync"})
+
+    mock_api.create_command.assert_called_once()
+    assert result.data["id"] == 10
+
+
+@pytest.mark.asyncio
+async def test_radarr_run_command_with_movie_ids(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_command.return_value = make_mock_model(
+        id=10, name="MoviesSearch", status="queued"
+    )
+
+    with patch("radarr.CommandApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_run_command", {"name": "MoviesSearch", "movie_ids": [1, 2]}
+            )
+
+    mock_api.create_command.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Manual import tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_preview_manual_import_basic(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_manual_import.return_value = [
+        make_mock_model(id=1, path="/dl/movie.mkv")
+    ]
+
+    with patch("radarr.ManualImportApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_preview_manual_import", {"folder": "/dl"}
+            )
+
+    mock_api.list_manual_import.assert_called_once_with(folder="/dl")
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_preview_manual_import_with_movie_id(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_manual_import.return_value = [
+        make_mock_model(id=1, path="/dl/movie.mkv")
+    ]
+
+    with patch("radarr.ManualImportApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_preview_manual_import", {"folder": "/dl", "movie_id": 42}
+            )
+
+    mock_api.list_manual_import.assert_called_once_with(folder="/dl", movie_id=42)
+
+
+@pytest.mark.asyncio
+async def test_radarr_execute_manual_import_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_manual_import.return_value = None
+
+    with patch("radarr.ManualImportApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_execute_manual_import",
+                {"files": [{"path": "/dl/movie.mkv", "movieId": 42}]},
+            )
+
+    mock_api.create_manual_import.assert_called_once()
+    assert result.data.get("success") is True
+
+
+# ---------------------------------------------------------------------------
+# Search / download tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_search_releases_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_release.return_value = [
+        make_mock_model(id=1, title="The.Matrix.2160p", indexerId=3)
+    ]
+
+    with patch("radarr.ReleaseApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_search_releases", {"movie_id": 42})
+
+    mock_api.list_release.assert_called_once_with(movie_id=42)
+    assert result.data["summary"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_radarr_download_release_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_release.return_value = make_mock_model(id=1, guid="xyz-789")
+
+    with patch("radarr.ReleaseApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_download_release", {"guid": "xyz-789", "indexer_id": 3}
+            )
+
+    mock_api.create_release.assert_called_once()
+    assert result.data["guid"] == "xyz-789"
+
+
+# ---------------------------------------------------------------------------
+# Queue read tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_queue_item_found(patched_mcp):
+    item = MagicMock()
+    item.id = 77
+    item.to_dict.return_value = {"id": 77, "title": "The Matrix"}
+
+    mock_api = MagicMock()
+    mock_api.list_queue_details.return_value = [item]
+
+    with patch("radarr.QueueDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_queue_item", {"id": 77})
+
+    assert result.data["id"] == 77
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_queue_item_not_found(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.list_queue_details.return_value = []
+
+    with patch("radarr.QueueDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_queue_item", {"id": 99})
+
+    assert result.data.get("error") == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_grab_queue_item_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.create_queue_grab_selected.return_value = None
+
+    with patch("radarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_grab_queue_item", {"id": 88})
+
+    mock_api.create_queue_grab_selected.assert_called_once()
+    assert result.data.get("success") is True
+
+
+@pytest.mark.asyncio
+async def test_radarr_remove_queue_item_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_queue.return_value = None
+
+    with patch("radarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_remove_queue_item", {"id": 88})
+
+    mock_api.delete_queue.assert_called_once_with(
+        id=88, blocklist=False, remove_from_client=True
+    )
+    assert result.data.get("success") is True
+
+
+@pytest.mark.asyncio
+async def test_radarr_remove_queue_item_with_blocklist(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.delete_queue.return_value = None
+
+    with patch("radarr.QueueApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_remove_queue_item", {"id": 88, "blocklist": True}
+            )
+
+    assert "blocklisted" in result.data.get("message", "").lower()
+
+
+# ---------------------------------------------------------------------------
+# Reference describe tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_quality_profile_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_quality_profile_by_id.return_value = make_mock_model(
+        id=8, name="SQP-2"
+    )
+
+    with patch("radarr.QualityProfileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_describe_quality_profile", {"id": 8}
+            )
+
+    assert result.data["id"] == 8
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_quality_profile_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_quality_profile_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.QualityProfileApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_describe_quality_profile", {"id": 999}
+            )
+
+    assert isinstance(result.data, dict)
+    assert result.data.get("error") == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_tag_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_tag_detail_by_id.return_value = make_mock_model(id=2, label="4k")
+
+    with patch("radarr.TagDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_tag", {"id": 2})
+
+    assert result.data["id"] == 2
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_tag_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_tag_detail_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.TagDetailsApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_tag", {"id": 999})
+
+    assert isinstance(result.data, dict)
+    assert result.data.get("error") == "not_found"
+
+
+# ---------------------------------------------------------------------------
+# Collections write tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_radarr_describe_collection_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_collection_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.CollectionApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool("radarr_describe_collection", {"id": 999})
+
+    assert result.data.get("error") == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_radarr_update_collection_happy_path(patched_mcp):
+    mock_api = MagicMock()
+    mock_api.get_collection_by_id.return_value = MagicMock()
+    mock_api.update_collection.return_value = make_mock_model(
+        id=10, title="Matrix Collection"
+    )
+
+    with patch("radarr.CollectionApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_update_collection", {"id": 10, "monitored": True}
+            )
+
+    mock_api.update_collection.assert_called_once()
+    assert result.data["id"] == 10
+
+
+@pytest.mark.asyncio
+async def test_radarr_update_collection_not_found(patched_mcp):
+    from radarr.exceptions import NotFoundException
+
+    mock_api = MagicMock()
+    mock_api.get_collection_by_id.side_effect = NotFoundException()
+
+    with patch("radarr.CollectionApi", return_value=mock_api):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "radarr_update_collection", {"id": 999, "monitored": True}
+            )
+
+    assert isinstance(result.data, dict)
+    assert result.data.get("error") == "not_found"

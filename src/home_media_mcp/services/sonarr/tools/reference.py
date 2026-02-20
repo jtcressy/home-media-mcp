@@ -45,7 +45,7 @@ async def sonarr_describe_quality_profile(
     api = sonarr.QualityProfileApi(client)
     try:
         result = await sonarr_api_call(api.get_quality_profile_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {
             "error": "not_found",
             "message": f"Quality profile with ID {id} not found.",
@@ -82,7 +82,7 @@ async def sonarr_describe_tag(
     api = sonarr.TagDetailsApi(client)
     try:
         result = await sonarr_api_call(api.get_tag_detail_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Tag with ID {id} not found."}
     return full_detail(result)
 

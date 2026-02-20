@@ -47,7 +47,7 @@ async def radarr_describe_movie_file(
     api = radarr.MovieFileApi(client)
     try:
         result = await radarr_api_call(api.get_movie_file_by_id, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Movie file with ID {id} not found."}
     return full_detail(result)
 
@@ -68,6 +68,6 @@ async def radarr_delete_movie_file(
     api = radarr.MovieFileApi(client)
     try:
         await radarr_api_call(api.delete_movie_file, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Movie file with ID {id} not found."}
     return {"success": True, "message": f"Movie file {id} deleted from disk."}

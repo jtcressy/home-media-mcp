@@ -55,7 +55,7 @@ async def radarr_describe_movie(
     api = radarr.MovieApi(client)
     try:
         result = await radarr_api_call(api.get_movie_by_id, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Movie with ID {id} not found."}
     return full_detail(result)
 
@@ -183,7 +183,7 @@ async def radarr_update_movie(
 
     try:
         movie = await radarr_api_call(api.get_movie_by_id, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Movie with ID {id} not found."}
 
     if monitored is not None:
@@ -233,7 +233,7 @@ async def radarr_delete_movie(
             delete_files=delete_files,
             add_import_exclusion=add_import_exclusion,
         )
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Movie with ID {id} not found."}
     return {
         "success": True,

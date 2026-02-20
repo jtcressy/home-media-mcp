@@ -49,7 +49,7 @@ async def sonarr_describe_episode(
     api = sonarr.EpisodeApi(client)
     try:
         result = await sonarr_api_call(api.get_episode_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Episode with ID {id} not found."}
     return full_detail(result)
 
@@ -68,7 +68,7 @@ async def sonarr_monitor_episodes(
     Pass a list of episode IDs and whether they should be monitored.
     """
     api = sonarr.EpisodeApi(client)
-    resource = sonarr.EpisodesMonitorResource(
+    resource = sonarr.EpisodesMonitoredResource(
         episode_ids=episode_ids, monitored=monitored
     )
     await sonarr_api_call(api.put_episode_monitor, episodes_monitor_resource=resource)

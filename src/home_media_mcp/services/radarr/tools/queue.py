@@ -60,7 +60,7 @@ async def radarr_grab_queue_item(
     api = radarr.QueueApi(client)
     await radarr_api_call(
         api.create_queue_grab_selected,
-        queue_grab_bulk_resource=radarr.QueueGrabBulkResource(ids=[id]),
+        queue_grab_bulk_resource=radarr.QueueBulkResource(ids=[id]),
     )
     return {"success": True, "message": f"Queue item {id} grabbed."}
 

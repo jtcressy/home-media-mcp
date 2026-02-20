@@ -48,7 +48,7 @@ async def sonarr_describe_episode_file(
     api = sonarr.EpisodeFileApi(client)
     try:
         result = await sonarr_api_call(api.get_episode_file_by_id, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {
             "error": "not_found",
             "message": f"Episode file with ID {id} not found.",
@@ -72,7 +72,7 @@ async def sonarr_delete_episode_file(
     api = sonarr.EpisodeFileApi(client)
     try:
         await sonarr_api_call(api.delete_episode_file, id=id)
-    except sonarr.NotFoundException:
+    except sonarr.exceptions.NotFoundException:
         return {
             "error": "not_found",
             "message": f"Episode file with ID {id} not found.",

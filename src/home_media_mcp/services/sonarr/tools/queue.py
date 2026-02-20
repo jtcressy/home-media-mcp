@@ -67,7 +67,7 @@ async def sonarr_grab_queue_item(
     api = sonarr.QueueApi(client)
     await sonarr_api_call(
         api.create_queue_grab_selected,
-        queue_grab_bulk_resource=sonarr.QueueGrabBulkResource(ids=[id]),
+        queue_grab_bulk_resource=sonarr.QueueBulkResource(ids=[id]),
     )
     return {"success": True, "message": f"Queue item {id} grabbed."}
 

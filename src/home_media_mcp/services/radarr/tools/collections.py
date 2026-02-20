@@ -43,7 +43,7 @@ async def radarr_describe_collection(
     api = radarr.CollectionApi(client)
     try:
         result = await radarr_api_call(api.get_collection_by_id, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Collection with ID {id} not found."}
     return full_detail(result)
 
@@ -73,7 +73,7 @@ async def radarr_update_collection(
 
     try:
         collection = await radarr_api_call(api.get_collection_by_id, id=id)
-    except radarr.NotFoundException:
+    except radarr.exceptions.NotFoundException:
         return {"error": "not_found", "message": f"Collection with ID {id} not found."}
 
     if monitored is not None:
