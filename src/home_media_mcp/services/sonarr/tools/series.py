@@ -75,7 +75,7 @@ async def sonarr_lookup_series(
     """
     api = sonarr.SeriesLookupApi(client)
     results = await sonarr_api_call(api.list_series_lookup, term=term)
-    return summarize_list(results)
+    return summarize_list(results, preserve_fields=["title", "tvdbId"])
 
 
 @mcp.tool(
@@ -118,8 +118,9 @@ async def sonarr_add_series(
     root_folder_path = next(f.path for f in folders if f.id == root_folder_id)
 
     # Lookup series info from TVDB
+    lookup_api = sonarr.SeriesLookupApi(client)
     lookup_results = await sonarr_api_call(
-        api.list_series_lookup, term=f"tvdb:{tvdb_id}"
+        lookup_api.list_series_lookup, term=f"tvdb:{tvdb_id}"
     )
     if not lookup_results:
         return {

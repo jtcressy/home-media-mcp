@@ -522,7 +522,7 @@ async def test_radarr_add_movie_happy_path(patched_mcp):
     mock_rf_api.list_root_folder.return_value = [rf]
 
     mock_lookup_api = MagicMock()
-    mock_lookup_api.list_movie_lookup_tmdb.return_value = [MagicMock()]
+    mock_lookup_api.list_movie_lookup.return_value = [MagicMock()]
 
     mock_movie_api = MagicMock()
     mock_movie_api.create_movie.return_value = make_mock_model(
@@ -559,7 +559,7 @@ async def test_radarr_add_movie_tmdb_not_found(patched_mcp):
     mock_rf_api.list_root_folder.return_value = [rf]
 
     mock_lookup_api = MagicMock()
-    mock_lookup_api.list_movie_lookup_tmdb.return_value = []
+    mock_lookup_api.list_movie_lookup.return_value = []
 
     mock_movie_api = MagicMock()
 

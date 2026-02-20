@@ -90,7 +90,7 @@ async def radarr_lookup_movie(
     else:
         results = await radarr_api_call(api.list_movie_lookup_imdb, imdb_id=imdb_id)
 
-    return summarize_list(results)
+    return summarize_list(results, preserve_fields=["title", "tmdbId"])
 
 
 @mcp.tool(
@@ -133,9 +133,11 @@ async def radarr_add_movie(
     root_folder_path = next(f.path for f in folders if f.id == root_folder_id)
 
     # Lookup movie info from TMDB
+    # Note: list_movie_lookup_tmdb returns a single MovieResource, not a list,
+    # which causes deserialization errors. Use list_movie_lookup with tmdb: prefix.
     lookup_api = radarr.MovieLookupApi(client)
     lookup_results = await radarr_api_call(
-        lookup_api.list_movie_lookup_tmdb, tmdb_id=tmdb_id
+        lookup_api.list_movie_lookup, term=f"tmdb:{tmdb_id}"
     )
     if not lookup_results:
         return {

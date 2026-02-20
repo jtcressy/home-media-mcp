@@ -418,18 +418,21 @@ async def test_sonarr_add_series_happy_path(patched_mcp):
     rf_mock_api.list_root_folder.return_value = [_make_rf_mock(id=1, path="/tv")]
 
     series_data_mock = MagicMock()
+    series_lookup_mock_api = MagicMock()
+    series_lookup_mock_api.list_series_lookup.return_value = [series_data_mock]
+
     series_mock_api = MagicMock()
-    series_mock_api.list_series_lookup.return_value = [series_data_mock]
     series_mock_api.create_series.return_value = make_mock_model(id=10, title="Test")
 
     with patch("sonarr.QualityProfileApi", return_value=qp_mock_api):
         with patch("sonarr.RootFolderApi", return_value=rf_mock_api):
-            with patch("sonarr.SeriesApi", return_value=series_mock_api):
-                async with Client(patched_mcp) as client:
-                    result = await client.call_tool(
-                        "sonarr_add_series",
-                        {"tvdb_id": 12345, "quality_profile": 1, "root_folder": 1},
-                    )
+            with patch("sonarr.SeriesLookupApi", return_value=series_lookup_mock_api):
+                with patch("sonarr.SeriesApi", return_value=series_mock_api):
+                    async with Client(patched_mcp) as client:
+                        result = await client.call_tool(
+                            "sonarr_add_series",
+                            {"tvdb_id": 12345, "quality_profile": 1, "root_folder": 1},
+                        )
 
     series_mock_api.create_series.assert_called_once()
     assert result.data["id"] == 10
@@ -443,12 +446,12 @@ async def test_sonarr_add_series_tvdb_not_found(patched_mcp):
     rf_mock_api = MagicMock()
     rf_mock_api.list_root_folder.return_value = [_make_rf_mock(id=1, path="/tv")]
 
-    series_mock_api = MagicMock()
-    series_mock_api.list_series_lookup.return_value = []
+    series_lookup_mock_api = MagicMock()
+    series_lookup_mock_api.list_series_lookup.return_value = []
 
     with patch("sonarr.QualityProfileApi", return_value=qp_mock_api):
         with patch("sonarr.RootFolderApi", return_value=rf_mock_api):
-            with patch("sonarr.SeriesApi", return_value=series_mock_api):
+            with patch("sonarr.SeriesLookupApi", return_value=series_lookup_mock_api):
                 async with Client(patched_mcp) as client:
                     result = await client.call_tool(
                         "sonarr_add_series",
