@@ -1,0 +1,44 @@
+[
+  {
+    "id": 101,
+    "seriesId": 1,
+    "tvdbId": 349232,
+    "episodeFileId": 501,
+    "seasonNumber": 1,
+    "episodeNumber": 1,
+    "title": "Pilot",
+    "overview": "Walter White, a struggling high school chemistry teacher, is diagnosed with advanced lung cancer.",
+    "hasFile": true,
+    "monitored": true,
+    "airDate": "2008-01-20",
+    "airDateUtc": "2008-01-21T02:00:00Z"
+  },
+  {
+    "id": 102,
+    "seriesId": 1,
+    "tvdbId": 349233,
+    "episodeFileId": 502,
+    "seasonNumber": 1,
+    "episodeNumber": 2,
+    "title": "Cat's in the Bag...",
+    "overview": "Walt and Jesse attempt to tie up loose ends.",
+    "hasFile": true,
+    "monitored": true,
+    "airDate": "2008-01-27",
+    "airDateUtc": "2008-01-28T02:00:00Z"
+  },
+  {
+    "id": 103,
+    "seriesId": 1,
+    "tvdbId": 349234,
+    "episodeFileId": 0,
+    "seasonNumber": 1,
+    "episodeNumber": 3,
+    "title": "...And the Bag's in the River",
+    "overview": "Walt wrestles with a difficult decision. Jesse is put in a difficult position.",
+    "hasFile": false,
+    "monitored": true,
+    "airDate": "2008-02-10",
+    "airDateUtc": "2008-02-11T02:00:00Z"
+  }
+]

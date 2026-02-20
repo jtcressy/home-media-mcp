@@ -1,0 +1,5 @@
+[
+  {"id": 1, "path": "/tv", "freeSpace": 500000000000},
+  {"id": 2, "path": "/movies", "freeSpace": 500000000000},
+  {"id": 3, "path": "/media/4k", "freeSpace": 200000000000}
+]

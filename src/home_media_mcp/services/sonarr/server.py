@@ -1,0 +1,42 @@
+"""Sonarr service helpers and tool registration."""
+
+import asyncio
+from typing import Any
+
+import sonarr
+from fastmcp import Context
+from fastmcp.dependencies import CurrentContext, Depends
+
+from home_media_mcp.server import mcp
+
+
+def get_sonarr_client(ctx: Context = CurrentContext()) -> sonarr.ApiClient:
+    """Dependency that provides the Sonarr API client from lifespan context."""
+    client = ctx.lifespan_context.get("sonarr_client")
+    if client is None:
+        raise RuntimeError("Sonarr client not available")
+    return client
+
+
+async def sonarr_api_call(func, *args, **kwargs) -> Any:
+    """Execute a synchronous sonarr-py API call in a thread."""
+    return await asyncio.to_thread(func, *args, **kwargs)
+
+
+# Import tool modules to register tools on the shared mcp instance
+from home_media_mcp.services.sonarr.tools import (  # noqa: E402, F401
+    blocklist,
+    calendar,
+    commands,
+    episode_files,
+    episodes,
+    history,
+    manual_import,
+    queue,
+    reference,
+    rename,
+    search,
+    series,
+    system,
+    wanted,
+)
