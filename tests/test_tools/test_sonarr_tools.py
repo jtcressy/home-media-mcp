@@ -1006,35 +1006,62 @@ async def test_sonarr_grab_queue_item_happy_path(patched_mcp):
 
 @pytest.mark.asyncio
 async def test_sonarr_remove_queue_items_happy_path(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.delete_queue_bulk.return_value = None
+    tracked_item = MagicMock()
+    tracked_item.id = 1
+    tracked_item.download_id = "SABnzbd_nzo_abc123"
+    tracked_item.to_dict.return_value = {"id": 1, "downloadId": "SABnzbd_nzo_abc123"}
 
-    with patch("sonarr.QueueApi", return_value=mock_api):
+    tracked_item2 = MagicMock()
+    tracked_item2.id = 2
+    tracked_item2.download_id = "SABnzbd_nzo_def456"
+    tracked_item2.to_dict.return_value = {"id": 2, "downloadId": "SABnzbd_nzo_def456"}
+
+    mock_details_api = MagicMock()
+    mock_details_api.list_queue_details.return_value = [tracked_item, tracked_item2]
+
+    mock_queue_api = MagicMock()
+    mock_queue_api.delete_queue_bulk.return_value = None
+
+    with (
+        patch("sonarr.QueueDetailsApi", return_value=mock_details_api),
+        patch("sonarr.QueueApi", return_value=mock_queue_api),
+    ):
         async with Client(patched_mcp) as client:
             result = await client.call_tool(
-                "sonarr_remove_queue_items", {"ids": [1, 2, 3]}
+                "sonarr_remove_queue_items", {"ids": [1, 2]}
             )
 
-    mock_api.delete_queue_bulk.assert_called_once()
-    call_kwargs = mock_api.delete_queue_bulk.call_args.kwargs
+    mock_queue_api.delete_queue_bulk.assert_called_once()
+    call_kwargs = mock_queue_api.delete_queue_bulk.call_args.kwargs
     assert call_kwargs["blocklist"] is False
     assert call_kwargs["remove_from_client"] is True
-    assert call_kwargs["queue_bulk_resource"].ids == [1, 2, 3]
+    assert call_kwargs["queue_bulk_resource"].ids == [1, 2]
     assert result.data["success"] is True
 
 
 @pytest.mark.asyncio
 async def test_sonarr_remove_queue_items_with_blocklist(patched_mcp):
-    mock_api = MagicMock()
-    mock_api.delete_queue_bulk.return_value = None
+    tracked_item = MagicMock()
+    tracked_item.id = 88
+    tracked_item.download_id = "SABnzbd_nzo_xyz789"
+    tracked_item.to_dict.return_value = {"id": 88, "downloadId": "SABnzbd_nzo_xyz789"}
 
-    with patch("sonarr.QueueApi", return_value=mock_api):
+    mock_details_api = MagicMock()
+    mock_details_api.list_queue_details.return_value = [tracked_item]
+
+    mock_queue_api = MagicMock()
+    mock_queue_api.delete_queue_bulk.return_value = None
+
+    with (
+        patch("sonarr.QueueDetailsApi", return_value=mock_details_api),
+        patch("sonarr.QueueApi", return_value=mock_queue_api),
+    ):
         async with Client(patched_mcp) as client:
             result = await client.call_tool(
-                "sonarr_remove_queue_items", {"ids": [1, 2, 3], "blocklist": True}
+                "sonarr_remove_queue_items", {"ids": [88], "blocklist": True}
             )
 
-    call_kwargs = mock_api.delete_queue_bulk.call_args.kwargs
+    call_kwargs = mock_queue_api.delete_queue_bulk.call_args.kwargs
     assert call_kwargs["blocklist"] is True
     assert "blocklisted" in result.data["message"]
 
@@ -1073,6 +1100,142 @@ async def test_sonarr_list_queue_preserve_fields(patched_mcp):
         "errorMessage",
     ]:
         assert field in result.data["items"][0], f"Field {field} should be present"
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_items_empty_list(patched_mcp):
+    async with Client(patched_mcp) as client:
+        result = await client.call_tool("sonarr_remove_queue_items", {"ids": []})
+
+    assert result.data["success"] is False
+    assert "error" in result.data
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_items_all_tracked(patched_mcp):
+    tracked_item = MagicMock()
+    tracked_item.id = 1
+    tracked_item.download_id = "SABnzbd_nzo_abc123"
+    tracked_item.to_dict.return_value = {"id": 1, "downloadId": "SABnzbd_nzo_abc123"}
+
+    tracked_item2 = MagicMock()
+    tracked_item2.id = 2
+    tracked_item2.download_id = "SABnzbd_nzo_def456"
+    tracked_item2.to_dict.return_value = {"id": 2, "downloadId": "SABnzbd_nzo_def456"}
+
+    mock_details_api = MagicMock()
+    mock_details_api.list_queue_details.return_value = [tracked_item, tracked_item2]
+
+    mock_queue_api = MagicMock()
+    mock_queue_api.delete_queue_bulk.return_value = None
+
+    with (
+        patch("sonarr.QueueDetailsApi", return_value=mock_details_api),
+        patch("sonarr.QueueApi", return_value=mock_queue_api),
+    ):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_remove_queue_items", {"ids": [1, 2]}
+            )
+
+    mock_queue_api.delete_queue_bulk.assert_called_once()
+    assert result.data["success"] is True
+    assert result.data["tracked_removed"] == 2
+    assert result.data["pending_removed"] == 0
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_items_all_pending(patched_mcp):
+    pending_item = MagicMock()
+    pending_item.id = 10
+    pending_item.download_id = None
+    pending_item.to_dict.return_value = {"id": 10, "downloadId": None}
+
+    pending_item2 = MagicMock()
+    pending_item2.id = 11
+    pending_item2.download_id = None
+    pending_item2.to_dict.return_value = {"id": 11, "downloadId": None}
+
+    mock_details_api = MagicMock()
+    mock_details_api.list_queue_details.return_value = [pending_item, pending_item2]
+
+    mock_queue_api = MagicMock()
+    mock_queue_api.delete_queue_bulk.return_value = None
+
+    with (
+        patch("sonarr.QueueDetailsApi", return_value=mock_details_api),
+        patch("sonarr.QueueApi", return_value=mock_queue_api),
+    ):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_remove_queue_items", {"ids": [10, 11]}
+            )
+
+    mock_queue_api.delete_queue_bulk.assert_called_once()
+    call_kwargs = mock_queue_api.delete_queue_bulk.call_args.kwargs
+    assert call_kwargs["remove_from_client"] is False
+    assert result.data["pending_removed"] == 2
+    assert result.data["tracked_removed"] == 0
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_items_mixed_types(patched_mcp):
+    tracked_item = MagicMock()
+    tracked_item.id = 1
+    tracked_item.download_id = "SABnzbd_nzo_abc123"
+    tracked_item.to_dict.return_value = {"id": 1, "downloadId": "SABnzbd_nzo_abc123"}
+
+    pending_item = MagicMock()
+    pending_item.id = 10
+    pending_item.download_id = None
+    pending_item.to_dict.return_value = {"id": 10, "downloadId": None}
+
+    mock_details_api = MagicMock()
+    mock_details_api.list_queue_details.return_value = [tracked_item, pending_item]
+
+    mock_queue_api = MagicMock()
+    mock_queue_api.delete_queue_bulk.return_value = None
+
+    with (
+        patch("sonarr.QueueDetailsApi", return_value=mock_details_api),
+        patch("sonarr.QueueApi", return_value=mock_queue_api),
+    ):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_remove_queue_items", {"ids": [1, 10]}
+            )
+
+    assert mock_queue_api.delete_queue_bulk.call_count == 2
+    assert result.data["tracked_removed"] == 1
+    assert result.data["pending_removed"] == 1
+
+
+@pytest.mark.asyncio
+async def test_sonarr_remove_queue_items_with_unknown(patched_mcp):
+    tracked_item = MagicMock()
+    tracked_item.id = 1
+    tracked_item.download_id = "SABnzbd_nzo_abc123"
+    tracked_item.to_dict.return_value = {"id": 1, "downloadId": "SABnzbd_nzo_abc123"}
+
+    mock_details_api = MagicMock()
+    mock_details_api.list_queue_details.return_value = [tracked_item]
+
+    mock_queue_api = MagicMock()
+    mock_queue_api.delete_queue_bulk.return_value = None
+
+    with (
+        patch("sonarr.QueueDetailsApi", return_value=mock_details_api),
+        patch("sonarr.QueueApi", return_value=mock_queue_api),
+    ):
+        async with Client(patched_mcp) as client:
+            result = await client.call_tool(
+                "sonarr_remove_queue_items", {"ids": [1, 999]}
+            )
+
+    assert result.data["success"] is True
+    assert result.data["tracked_removed"] == 1
+    assert result.data["errors"] is not None
+    assert "999" in str(result.data["errors"])
 
 
 # ---------------------------------------------------------------------------

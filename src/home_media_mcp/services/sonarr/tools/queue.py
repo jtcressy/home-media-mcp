@@ -1,5 +1,6 @@
 """Sonarr queue management tools."""
 
+import asyncio
 from typing import Annotated, Any
 
 import sonarr
@@ -90,15 +91,65 @@ async def sonarr_remove_queue_items(
     client: sonarr.ApiClient = Depends(get_sonarr_client),
 ) -> dict[str, Any]:
     """Remove multiple items from the download queue in a single request."""
+    if not ids:
+        return {"success": False, "error": "No queue item IDs provided."}
+
+    details_api = sonarr.QueueDetailsApi(client)
+    queue_items = await sonarr_api_call(details_api.list_queue_details)
+    queue_by_id = {item.id: item for item in queue_items}
+
+    tracked_ids = []
+    pending_ids = []
+    unknown_ids = []
+
+    for queue_id in ids:
+        item = queue_by_id.get(queue_id)
+        if item is None:
+            unknown_ids.append(queue_id)
+        elif getattr(item, "download_id", None):
+            tracked_ids.append(queue_id)
+        else:
+            pending_ids.append(queue_id)
+
     api = sonarr.QueueApi(client)
-    await sonarr_api_call(
-        api.delete_queue_bulk,
-        blocklist=blocklist,
-        remove_from_client=remove_from_client,
-        queue_bulk_resource=sonarr.QueueBulkResource(ids=ids),
-    )
+    tasks = []
+
+    if tracked_ids:
+        tasks.append(
+            sonarr_api_call(
+                api.delete_queue_bulk,
+                blocklist=blocklist,
+                remove_from_client=remove_from_client,
+                queue_bulk_resource=sonarr.QueueBulkResource(ids=tracked_ids),
+            )
+        )
+    if pending_ids:
+        tasks.append(
+            sonarr_api_call(
+                api.delete_queue_bulk,
+                blocklist=blocklist,
+                remove_from_client=False,
+                queue_bulk_resource=sonarr.QueueBulkResource(ids=pending_ids),
+            )
+        )
+
+    errors = []
+    if tasks:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                which = "tracked" if i == 0 and tracked_ids else "pending"
+                errors.append(f"Failed to remove {which} items: {result}")
+
+    if unknown_ids:
+        errors.append(f"IDs not found in queue: {unknown_ids}")
+
+    removed_count = len(tracked_ids) + len(pending_ids)
     return {
-        "success": True,
-        "message": f"Removed {len(ids)} queue items"
+        "success": removed_count > 0,
+        "message": f"Removed {removed_count} queue items"
         + (" and blocklisted" if blocklist else ""),
+        "tracked_removed": len(tracked_ids),
+        "pending_removed": len(pending_ids),
+        "errors": errors or None,
     }
